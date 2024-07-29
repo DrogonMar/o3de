@@ -8,6 +8,7 @@
 #pragma once
 
 #include <AzFramework/Input/Devices/Keyboard/InputDeviceKeyboard.h>
+#include <AzCore/Time/TimeSystem.h>
 #include <AzFramework/WaylandConnectionManager.h>
 #include <AzFramework/Protocols/SeatManager.h>
 
@@ -37,6 +38,8 @@ namespace AzFramework
 		bool HasTextEntryStarted() const override;
 		void TextEntryStart(const AzFramework::InputTextEntryRequests::VirtualKeyboardOptions &options) override;
 		void TextEntryStop() override;
+
+		void ResetRepeatState();
 
 		void TickInputDevice() override;
 
@@ -101,6 +104,9 @@ namespace AzFramework
 
 		int32_t m_repeatDelayMs = 0;
 		int32_t m_repeatRatePerSec = 0;
+		AZStd::string m_currentHeldKey;
+		AZ::TimeMs m_heldKeyElapsed;
+		AZ::TimeMs m_lastRepeatTime;
 
 		bool m_inTextMode = false;
 

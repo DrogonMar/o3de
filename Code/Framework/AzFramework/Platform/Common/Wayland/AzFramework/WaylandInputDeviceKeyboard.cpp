@@ -1,5 +1,6 @@
 #include <AzFramework/WaylandInputDeviceKeyboard.h>
 #include <sys/mman.h>
+
 namespace AzFramework
 {
 	void WaylandInputDeviceKeyboard::KeyboardEnter(void *data,
@@ -179,8 +180,35 @@ namespace AzFramework
 		m_inTextMode = false;
 	}
 
+	void WaylandInputDeviceKeyboard::ResetRepeatState()
+	{
+		m_currentHeldKey.clear();
+		m_heldKeyElapsed = AZ::TimeMs();
+		m_lastRepeatTime = AZ::TimeMs();
+	}
+
 	void WaylandInputDeviceKeyboard::TickInputDevice()
 	{
+		if(!m_currentHeldKey.empty())
+		{
+			AZ::TimeMs currentElapsed;
+			AZ::ITimeRequestBus::BroadcastResult(currentElapsed, &AZ::ITimeRequestBus::Events::GetRealElapsedTimeMs);
+
+			auto heldTimeMs = currentElapsed - m_heldKeyElapsed;
+			if(heldTimeMs >= AZ::TimeMs(m_repeatDelayMs))
+			{
+				//Delay is done, repeat
+				auto repeatIntervalMs = AZ::TimeMs(1000 / m_repeatRatePerSec);
+				auto timeSinceLastRepeat = currentElapsed - m_lastRepeatTime;
+
+				if(timeSinceLastRepeat >= repeatIntervalMs)
+				{
+					QueueRawTextEvent(m_currentHeldKey);
+					m_lastRepeatTime = currentElapsed;
+				}
+			}
+		}
+
 		ProcessRawEventQueues();
 	}
 
@@ -188,14 +216,29 @@ namespace AzFramework
 	{
 		xkb_keysym_t sym = xkb_state_key_get_one_sym(m_xkbState, waylandKey + 8);
 
-		if(isPressed) {
-			auto text = TextFromKeyCode(waylandKey + 8);
-			if (!text.empty()) {
+		auto text = TextFromKeyCode(waylandKey + 8);
+		if(isPressed)
+		{
+			if (!text.empty())
+			{
+				if(text != m_currentHeldKey)
+				{
+					//Not the same key so reset repeat state
+					ResetRepeatState();
+				}
+				m_currentHeldKey = text;
+				AZ::ITimeRequestBus::BroadcastResult(m_heldKeyElapsed, &AZ::ITimeRequestBus::Events::GetRealElapsedTimeMs);
+
 				QueueRawTextEvent(AZStd::move(text));
 			}
 		}
+		else if(m_currentHeldKey == text) // The held key is released and it's the same.
+		{
+			ResetRepeatState();
+		}
 
-		if(const InputChannelId* key = InputChannelFromKeySym(sym)){
+		if(const InputChannelId* key = InputChannelFromKeySym(sym))
+		{
 			QueueRawKeyEvent(*key, isPressed);
 		}
 	}
