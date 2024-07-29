@@ -26,6 +26,9 @@ namespace AzFramework
 		WaylandNativeWindow();
 		~WaylandNativeWindow() override;
 
+		void Activate() override;
+		void Deactivate() override;
+
 		void InitWindowInternal(const AZStd::string &title, const AzFramework::WindowGeometry &geometry, const AzFramework::WindowStyleMasks &styleMasks) override;
 		NativeWindowHandle GetWindowHandle() const override;
 
@@ -99,6 +102,8 @@ namespace AzFramework
 		};
 
 	private:
+		bool m_activated = false;
+
 		//Globals cache
 		wl_display* m_display;
 		wl_compositor* m_compositor;

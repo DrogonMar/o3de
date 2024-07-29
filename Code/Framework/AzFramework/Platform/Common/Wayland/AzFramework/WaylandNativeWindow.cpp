@@ -119,20 +119,45 @@ namespace AzFramework
 
 	WaylandNativeWindow::~WaylandNativeWindow()
 	{
-//		if(m_xdgTopLevelDecor != nullptr){
-//			zxdg_toplevel_decoration_v1_destroy(m_xdgTopLevelDecor);
-//		}
-//		if(m_xdgToplevel != nullptr){
-//			xdg_toplevel_destroy(m_xdgToplevel);
-//		}
-//		if(m_xdgSurface != nullptr){
-//			xdg_surface_destroy(m_xdgSurface);
-//		}
-//		if(m_surface != nullptr){
-//			wl_surface_destroy(m_surface);
-//		}
 	}
 
+	void WaylandNativeWindow::Activate()
+	{
+		if(!m_activated && m_surface != nullptr)
+		{
+			wl_surface_commit(m_surface);
+			m_activated = true;
+		}
+	}
+
+	void WaylandNativeWindow::Deactivate()
+	{
+		if(!m_activated)
+		{
+			return;
+		}
+
+		WindowNotificationBus::Event(reinterpret_cast<NativeWindowHandle>(m_surface), &WindowNotificationBus::Events::OnWindowClosed);
+
+		if(m_xdgTopLevelDecor != nullptr){
+			zxdg_toplevel_decoration_v1_destroy(m_xdgTopLevelDecor);
+			m_xdgTopLevelDecor = nullptr;
+		}
+		if(m_xdgToplevel != nullptr){
+			xdg_toplevel_destroy(m_xdgToplevel);
+			m_xdgToplevel = nullptr;
+		}
+		if(m_xdgSurface != nullptr){
+			xdg_surface_destroy(m_xdgSurface);
+			m_xdgSurface = nullptr;
+		}
+		if(m_surface != nullptr){
+			wl_surface_destroy(m_surface);
+			m_surface = nullptr;
+		}
+
+		m_activated = false;
+	}
 
 	void WaylandNativeWindow::InitWindowInternal(const AZStd::string &title,
 											 const WindowGeometry &geometry,

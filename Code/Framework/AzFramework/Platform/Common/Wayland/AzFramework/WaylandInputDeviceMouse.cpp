@@ -25,10 +25,15 @@ namespace AzFramework
 							 wl_fixed_t surface_y)
 	{
 		auto self = static_cast<WaylandInputDeviceMouse*>(data);
-		auto wnw = static_cast<WaylandNativeWindow*>(wl_surface_get_user_data(surface));
-		wnw->SetPointerFocus(self);
+		if(surface != nullptr)
+		{
+			if (auto wnw = static_cast<WaylandNativeWindow *>(wl_surface_get_user_data(surface)))
+			{
+				wnw->SetPointerFocus(self);
+				self->m_focusedWindow = wnw;
+			}
+		}
 
-		self->m_focusedWindow = wnw;
 		self->m_currentSerial = serial;
 
 		self->m_axisEvent.m_eventMask |= PointerEventMask::POINTER_EVENT_ENTER;
@@ -45,10 +50,16 @@ namespace AzFramework
 							 struct wl_surface *surface)
 	{
 		auto self = static_cast<WaylandInputDeviceMouse*>(data);
-		auto wnw = static_cast<WaylandNativeWindow*>(wl_surface_get_user_data(surface));
 
-		wnw->SetPointerFocus(nullptr);
+		if(surface != nullptr)
+		{
+			if (auto wnw = static_cast<WaylandNativeWindow *>(wl_surface_get_user_data(surface)))
+			{
+				wnw->SetPointerFocus(nullptr);
+			}
+		}
 		self->m_focusedWindow = nullptr;
+
 		self->m_currentSerial = UINT32_MAX;
 
 		self->m_axisEvent.m_eventMask |= PointerEventMask::POINTER_EVENT_LEAVE;
