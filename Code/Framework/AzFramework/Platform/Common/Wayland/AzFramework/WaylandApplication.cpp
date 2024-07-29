@@ -1,0 +1,666 @@
+/*
+ * Copyright (c) Contributors to the Open 3D Engine Project.
+ * For complete copyright and license terms please see the LICENSE at the root of this distribution.
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
+ *
+ */
+
+#include <AzFramework/WaylandApplication.h>
+#include <AzFramework/WaylandConnectionManager.h>
+#include <AzFramework/WaylandInterface.h>
+#include <AzFramework/Protocols/XdgDecorManager.h>
+#include <AzFramework/Protocols/SeatManager.h>
+#include <AzFramework/Protocols/CursorShapeManager.h>
+#include <AzFramework/Protocols/PointerConstraintsManager.h>
+#include <AzFramework/Protocols/RelativePointerManager.h>
+
+#include <wayland-client.hpp>
+#include <wayland-client-protocol.h>
+#include <sys/poll.h>
+
+#define IS_INTERFACE(wantedInter) strcmp(interface, wantedInter.name) == 0
+
+namespace AzFramework
+{
+	struct WaylandSeat
+	{
+		WaylandSeat(wl_seat* inseat) : m_seat(inseat) {}
+
+		wl_seat* m_seat;
+		uint32_t m_playerIdx;
+		bool m_supportsPointer = false;
+		bool m_supportsKeyboard = false;
+		bool m_supportsTouch = false;
+
+		AZStd::string m_name;
+	};
+
+	class WaylandConnectionManagerImpl
+		: public WaylandConnectionManagerBus::Handler
+		, public SeatManager
+		, public CursorShapeManager
+		, public PointerConstraintsManager
+		, public RelativePointerManager
+	{
+	public:
+		WaylandConnectionManagerImpl()
+			: m_waylandDisplay(wl_display_connect(nullptr))
+		{
+			AZ_Error("Application", m_waylandDisplay != nullptr, "Unable to connect to Wayland Display.");
+
+			m_fd = wl_display_get_fd(m_waylandDisplay.get());
+
+			m_registry = wl_display_get_registry(m_waylandDisplay.get());
+			AZ_Error("Application", m_registry != nullptr, "Unable to get Wayland Registry.");
+
+			m_xkbContext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+			AZ_Error("Application", m_xkbContext != nullptr, "Unable to get XKB context.");
+
+			wl_registry_add_listener(m_registry, &s_registry_listener, this);
+
+			WaylandConnectionManagerBus::Handler::BusConnect();
+
+			if(SeatManagerInterface::Get() == nullptr){
+				SeatManagerInterface::Register(this);
+			}
+			if(CursorShapeManagerInterface::Get() == nullptr){
+				CursorShapeManagerInterface::Register(this);
+			}
+			if(PointerConstraintsManagerInterface::Get() == nullptr){
+				PointerConstraintsManagerInterface::Register(this);
+			}
+			if(RelativePointerManagerInterface::Get() == nullptr){
+				RelativePointerManagerInterface::Register(this);
+			}
+
+		}
+
+		~WaylandConnectionManagerImpl() override
+		{
+			if(SeatManagerInterface::Get() == this){
+				SeatManagerInterface::Unregister(this);
+			}
+			if(CursorShapeManagerInterface::Get() == this){
+				CursorShapeManagerInterface::Unregister(this);
+			}
+			if(PointerConstraintsManagerInterface::Get() == this){
+				PointerConstraintsManagerInterface::Unregister(this);
+			}
+			if(RelativePointerManagerInterface::Get() == this){
+				RelativePointerManagerInterface::Unregister(this);
+			}
+
+			WaylandConnectionManagerBus::Handler::BusDisconnect();
+			wl_registry_destroy(m_registry);
+			wl_compositor_destroy(m_compositor);
+		}
+
+		void DoRoundtrip() const override{
+			wl_display_roundtrip(m_waylandDisplay.get());
+		}
+
+		int GetDisplayFD() const override{
+			return m_fd;
+		}
+
+		wl_display * GetWaylandDisplay() const override{
+			return m_waylandDisplay.get();
+		}
+
+		wl_registry * GetWaylandRegistry() const override{
+			return m_registry;
+		}
+
+		wl_compositor * GetWaylandCompositor() const override{
+			return m_compositor;
+		}
+
+		xkb_context * GetXkbContext() const override{
+			return m_xkbContext;
+		}
+
+		uint32_t GetSeatCount() const override{
+			return m_seats.size();
+		}
+
+		wl_pointer * GetSeatPointer(uint32_t playerIdx) const override
+		{
+			if(auto seat = GetSeatFromPlayerIdx(playerIdx)){
+				if(!seat->m_supportsPointer)
+					return nullptr;
+				return wl_seat_get_pointer(seat->m_seat);
+			}
+			return nullptr;
+		}
+
+		wl_keyboard * GetSeatKeyboard(uint32_t playerIdx) const override
+		{
+			if(auto seat = GetSeatFromPlayerIdx(playerIdx)){
+				if(!seat->m_supportsKeyboard)
+					return nullptr;
+				return wl_seat_get_keyboard(seat->m_seat);
+			}
+			return nullptr;
+		}
+
+		wl_touch * GetSeatTouch(uint32_t playerIdx) const override
+		{
+			if(auto seat = GetSeatFromPlayerIdx(playerIdx)){
+				if(!seat->m_supportsTouch)
+					return nullptr;
+				return wl_seat_get_touch(seat->m_seat);
+			}
+			return nullptr;
+		}
+
+		wp_cursor_shape_device_v1 * GetCursorShapeDevice(wl_pointer *pointer) override
+		{
+			return wp_cursor_shape_manager_v1_get_pointer(m_cursorManager, pointer);
+		}
+
+		zwp_pointer_constraints_v1 * GetConstraints() override
+		{
+			return m_constraintsManager;
+		}
+
+		zwp_relative_pointer_v1 * GetRelativePointer(wl_pointer *pointer) override
+		{
+			if(m_relativePointerManager == nullptr)
+			{
+				return nullptr;
+			}
+			return zwp_relative_pointer_manager_v1_get_relative_pointer(m_relativePointerManager, pointer);
+		}
+
+		static void GlobalRegistryHandler(void* data,
+										  wl_registry* registry,
+										  uint32_t id,
+										  const char* interface,
+										  uint32_t version)
+		{
+			auto self = static_cast<WaylandConnectionManagerImpl*>(data);
+
+			if(IS_INTERFACE(wl_compositor_interface))
+			{
+				self->m_compositor =
+					static_cast<wl_compositor*>(wl_registry_bind(registry, id, &wl_compositor_interface, version));
+			}
+			else if (IS_INTERFACE(wl_seat_interface))
+			{
+				auto seat =
+					static_cast<wl_seat*>(wl_registry_bind(registry, id, &wl_seat_interface, version));
+				auto info = new WaylandSeat(seat);
+				info->m_playerIdx = self->GetAvailablePlayerIdx();
+				wl_seat_add_listener(seat, &self->s_seat_listener, info);
+
+				self->m_seats.emplace(id, info);
+			}
+			else if (IS_INTERFACE(wp_cursor_shape_manager_v1_interface))
+			{
+				self->m_cursorManager =
+					static_cast<wp_cursor_shape_manager_v1*>(wl_registry_bind(registry, id, &wp_cursor_shape_manager_v1_interface, version));
+			}
+			else if (IS_INTERFACE(zwp_pointer_constraints_v1_interface))
+			{
+				self->m_constraintsManager =
+					static_cast<zwp_pointer_constraints_v1*>(wl_registry_bind(registry, id, &zwp_pointer_constraints_v1_interface, version));
+			}
+			else if (IS_INTERFACE(zwp_relative_pointer_manager_v1_interface))
+			{
+				self->m_relativePointerManager =
+					static_cast<zwp_relative_pointer_manager_v1*>(wl_registry_bind(registry, id, &zwp_relative_pointer_manager_v1_interface, version));
+			}
+			else
+			{
+				WaylandRegistryEventsBus::Broadcast(
+					&WaylandRegistryEventsBus::Events::OnRegister,
+					registry,
+					id,
+					interface,
+					version);
+			}
+		}
+
+		static void GlobalRegistryRemove(void* data, wl_registry* registry, uint32_t id){
+			auto self = static_cast<WaylandConnectionManagerImpl*>(data);
+			if(wl_proxy_get_id((wl_proxy*)self->m_compositor) == id){
+				//OH GOD OH NO!
+			}
+			else if (self->m_seats.find(id) != self->m_seats.end()){
+				//it be a seat
+				auto seat = self->m_seats[id];
+				self->m_seats.erase(id);
+
+				wl_seat_destroy(seat->m_seat);
+				delete seat;
+			}
+			else if (wl_proxy_get_id((wl_proxy*)self->m_cursorManager))
+			{
+				wp_cursor_shape_manager_v1_destroy(self->m_cursorManager);
+				self->m_cursorManager = nullptr;
+			}
+			else if (wl_proxy_get_id((wl_proxy*)self->m_constraintsManager))
+			{
+				zwp_pointer_constraints_v1_destroy(self->m_constraintsManager);
+				self->m_constraintsManager = nullptr;
+			}
+			else if (wl_proxy_get_id((wl_proxy*)self->m_relativePointerManager))
+			{
+				zwp_relative_pointer_manager_v1_destroy(self->m_relativePointerManager);
+				self->m_relativePointerManager = nullptr;
+			}
+			else{
+				WaylandRegistryEventsBus::Broadcast(
+					&WaylandRegistryEventsBus::Events::OnUnregister,
+					registry,
+					id);
+			}
+		}
+
+		static void SeatCaps(void *data,
+							 struct wl_seat *wl_seat,
+							 uint32_t capabilities)
+		{
+			auto self = static_cast<WaylandSeat*>(data);
+
+			self->m_supportsPointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
+			self->m_supportsKeyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+			self->m_supportsTouch = capabilities & WL_SEAT_CAPABILITY_TOUCH;
+
+			//Tell people that the caps have changed
+			AzFramework::SeatNotificationsBus::Event(self->m_playerIdx, &AzFramework::SeatNotificationsBus::Events::SeatCapsChanged);
+		}
+
+		static void SeatName(void *data,
+							 struct wl_seat *wl_seat,
+							 const char *name)
+		{
+			auto self = static_cast<WaylandSeat*>(data);
+			self->m_name = AZStd::string (name);
+		}
+
+
+	private:
+		WaylandSeat* GetSeatFromPlayerIdx(uint32_t playerIdx) const
+		{
+			for (auto& seat : m_seats) {
+				if(seat.second->m_playerIdx == playerIdx){
+					return seat.second;
+				}
+			}
+
+			return nullptr;
+		}
+
+		uint32_t GetAvailablePlayerIdx() const
+		{
+			for (uint32_t i = 0; i < UINT32_MAX; ++i) {
+				if(GetSeatFromPlayerIdx(i) == nullptr){
+					return i;
+				}
+			}
+
+			return UINT32_MAX;
+		}
+
+		int m_fd = -1;
+		WaylandUniquePtr<wl_display, wl_display_disconnect> m_waylandDisplay = nullptr;
+		wl_registry* m_registry = nullptr;
+		wl_compositor* m_compositor = nullptr;
+		xkb_context* m_xkbContext = nullptr;
+		wp_cursor_shape_manager_v1* m_cursorManager = nullptr;
+		zwp_pointer_constraints_v1* m_constraintsManager = nullptr;
+		zwp_relative_pointer_manager_v1* m_relativePointerManager = nullptr;
+
+		//Registry id -> WaylandSeat Ptr
+		AZStd::map<uint32_t, WaylandSeat*> m_seats;
+
+		const wl_registry_listener s_registry_listener = {
+			.global = GlobalRegistryHandler,
+			.global_remove = GlobalRegistryRemove
+		};
+
+		const wl_seat_listener s_seat_listener = {
+			.capabilities = SeatCaps,
+			.name = SeatName
+		};
+
+	};
+
+	class XdgManagerImpl
+		: public XdgShellConnectionManager
+		, public XdgDecorConnectionManager
+		, public WaylandRegistryEventsBus::Handler
+	{
+	public:
+		XdgManagerImpl(){
+			WaylandRegistryEventsBus::Handler::BusConnect();
+
+			if(XdgShellConnectionManagerInterface::Get() == nullptr)
+			{
+				XdgShellConnectionManagerInterface::Register(this);
+			}
+
+			if(XdgDecorConnectionManagerInterface::Get() == nullptr)
+			{
+				XdgDecorConnectionManagerInterface::Register(this);
+			}
+		}
+
+		~XdgManagerImpl(){
+			WaylandRegistryEventsBus::Handler::BusDisconnect();
+
+			if(XdgShellConnectionManagerInterface::Get() == this){
+				XdgShellConnectionManagerInterface::Unregister(this);
+			}
+			if(XdgDecorConnectionManagerInterface::Get() == this){
+				XdgDecorConnectionManagerInterface::Unregister(this);
+			}
+
+			xdg_wm_base_destroy(m_xdg);
+			zxdg_decoration_manager_v1_destroy(m_decor);
+		}
+
+		xdg_wm_base * GetXdgWmBase() const override{
+			return m_xdg;
+		}
+
+		zxdg_decoration_manager_v1 * GetXdgDecor() const override{
+			return m_decor;
+		}
+
+		void OnRegister(wl_registry *registry, uint32_t id, const char *interface, uint32_t version) override {
+			if(IS_INTERFACE(xdg_wm_base_interface)){
+				m_xdg =
+					static_cast<xdg_wm_base*>(wl_registry_bind(registry, id, &xdg_wm_base_interface, version));
+				xdg_wm_base_add_listener(m_xdg, &s_xdg_wm_listener, this);
+			}else if(IS_INTERFACE(zxdg_decoration_manager_v1_interface)){
+				m_decor =
+					static_cast<zxdg_decoration_manager_v1*>(wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, version));
+			}
+		}
+
+		void OnUnregister(wl_registry *, uint32_t) override{
+
+		}
+
+		static void XdgPing(void* data, xdg_wm_base* xdg, uint32_t serial){
+			//You ping, I pong :)
+			xdg_wm_base_pong(xdg, serial);
+		}
+
+		const xdg_wm_base_listener s_xdg_wm_listener = {
+			.ping = XdgPing
+		};
+
+
+	private:
+		xdg_wm_base* m_xdg;
+		zxdg_decoration_manager_v1* m_decor;
+	};
+
+	struct OutputInfo {
+		wl_output* m_output;
+		uint32_t m_id;
+		bool m_isDone = false;
+		int32_t m_x;
+		int32_t m_y;
+		int32_t m_width;
+		int32_t m_height;
+		int32_t m_refreshRateMhz;
+		int32_t m_physicalWidth;
+		int32_t m_physicalHeight;
+		wl_output_subpixel m_subpixel;
+		AZStd::string m_make;
+		AZStd::string m_model;
+		wl_output_transform m_transform;
+
+		AZStd::string m_name;
+		AZStd::string m_desc;
+
+		int32_t m_scaleFactor;
+	};
+
+	class OutputManagerImpl
+		: public OutputManager
+		, public WaylandRegistryEventsBus::Handler
+	{
+	public:
+		OutputManagerImpl()
+		{
+			WaylandRegistryEventsBus::Handler::BusConnect();
+
+			if(OutputManagerInterface::Get() == nullptr)
+			{
+				OutputManagerInterface::Register(this);
+			}
+		}
+
+		~OutputManagerImpl() override
+		{
+			WaylandRegistryEventsBus::Handler::BusDisconnect();
+
+			if(OutputManagerInterface::Get() == this){
+				OutputManagerInterface::Unregister(this);
+			}
+		}
+
+		uint32_t GetRefreshRateMhz(wl_output *output) override
+		{
+			OutputInfo* info = static_cast<OutputInfo *>(wl_output_get_user_data(output));
+			if(info == nullptr || !info->m_isDone)
+				return 0;
+
+			return info->m_refreshRateMhz;
+		}
+
+		AZStd::string GetOutputName(wl_output *output) override
+		{
+			OutputInfo* info = static_cast<OutputInfo *>(wl_output_get_user_data(output));
+			if(info == nullptr || !info->m_isDone)
+				return {};
+
+			return info->m_name;
+		}
+
+		AZStd::string GetOutputDesc(wl_output *output) override
+		{
+			OutputInfo* info = static_cast<OutputInfo *>(wl_output_get_user_data(output));
+			if(info == nullptr || !info->m_isDone)
+				return {};
+
+			return info->m_desc;
+		}
+
+		void OnRegister(wl_registry *registry, uint32_t id, const char *interface, uint32_t version) override
+		{
+			if(!IS_INTERFACE(wl_output_interface)) {
+				return;
+			}
+
+			wl_output* output =
+				static_cast<wl_output*>(wl_registry_bind(registry, id, &wl_output_interface, version));
+
+			auto info = azcreate(OutputInfo);
+			info->m_output = output;
+			info->m_id = id;
+
+			wl_output_set_user_data(output, info);
+
+			wl_output_add_listener(output, &s_output_listener, info);
+
+			m_outputs.emplace(id, info);
+		}
+
+		void OnUnregister(wl_registry *registry, uint32_t id) override{
+			if(m_outputs.find(id) == m_outputs.end()){
+				return;
+			}
+
+			auto info = m_outputs[id];
+			m_outputs.erase(id);
+
+			wl_output_destroy(info->m_output);
+
+			azdestroy(info);
+		}
+
+		static void OutputGeometry(void *data,
+								   struct wl_output *wl_output,
+								   int32_t x,
+								   int32_t y,
+								   int32_t physical_width,
+								   int32_t physical_height,
+								   int32_t subpixel,
+								   const char *make,
+								   const char *model,
+								   int32_t transform)
+		{
+			auto self = static_cast<OutputInfo*>(data);
+			self->m_x = x;
+			self->m_y = y;
+			self->m_physicalWidth = physical_width;
+			self->m_physicalHeight = physical_height;
+			self->m_subpixel = static_cast<wl_output_subpixel>(subpixel);
+			self->m_make = AZStd::string(make);
+			self->m_model = AZStd::string(model);
+			self->m_transform = static_cast<wl_output_transform>(transform);
+		}
+
+		static void OutputMode(
+			void *data,
+			struct wl_output *wl_output,
+			uint32_t flags,
+			int32_t width,
+			int32_t height,
+			int32_t refresh)
+		{
+			auto self = static_cast<OutputInfo*>(data);
+			if(flags & wl_output_mode::WL_OUTPUT_MODE_CURRENT){
+				//We only really care for the current mode.
+				self->m_width = width;
+				self->m_height = height;
+				self->m_refreshRateMhz = refresh;
+				auto friendlyRR = (uint32_t)AZStd::ceil((float)refresh / 1000.0f);
+
+				AZ_Info("Output", "%i: %ix%i @%i", self->m_id, width, height, friendlyRR);
+			}
+		}
+
+		static void OutputDone(void *data, struct wl_output *wl_output)
+		{
+			auto self = static_cast<OutputInfo*>(data);
+			self->m_isDone = true;
+		}
+
+		static void OutputScale(void *data, struct wl_output *wl_output, int32_t factor)
+		{
+			auto self = static_cast<OutputInfo*>(data);
+			self->m_scaleFactor = factor;
+		}
+
+		static void OutputName(void *data, struct wl_output *wl_output, const char* name)
+		{
+			auto self = static_cast<OutputInfo*>(data);
+			self->m_name = AZStd::string(name);
+		}
+
+		static void OutputDesc(void *data, struct wl_output *wl_output, const char* description)
+		{
+			auto self = static_cast<OutputInfo*>(data);
+			self->m_desc = AZStd::string(description);
+		}
+
+		const wl_output_listener s_output_listener = {
+			.geometry = OutputGeometry,
+			.mode = OutputMode,
+			.done = OutputDone,
+			.scale = OutputScale,
+			.name = OutputName,
+			.description = OutputDesc
+		};
+
+	private:
+		AZStd::map<uint32_t, OutputInfo*> m_outputs;
+	};
+
+	WaylandApplication::WaylandApplication()
+	{
+		LinuxLifecycleEvents::Bus::Handler::BusConnect();
+
+		m_waylandConnectionManager = AZStd::make_unique<WaylandConnectionManagerImpl>();
+		if(WaylandConnectionManagerInterface::Get() == nullptr)
+		{
+			WaylandConnectionManagerInterface::Register(m_waylandConnectionManager.get());
+		}
+
+		//Add needed protocols
+		m_outputManager = AZStd::make_unique<OutputManagerImpl>();
+		m_xdgManager = AZStd::make_unique<XdgManagerImpl>();
+
+		WaylandConnectionManagerBus::Broadcast(&WaylandConnectionManagerBus::Events::DoRoundtrip);
+		PumpSystemEventLoopOnce();
+
+	}
+
+	WaylandApplication::~WaylandApplication()
+	{
+		if(WaylandConnectionManagerInterface::Get() == m_waylandConnectionManager.get())
+		{
+			WaylandConnectionManagerInterface ::Unregister(m_waylandConnectionManager.get());
+		}
+		m_outputManager.reset();
+		m_xdgManager.reset();
+		m_waylandConnectionManager.reset();
+		LinuxLifecycleEvents::Bus::Handler::BusDisconnect();
+	}
+
+
+	bool WaylandApplication::HasEventsWaiting()
+	{
+		int fd = m_waylandConnectionManager->GetDisplayFD();
+		struct pollfd pfd = {fd, POLLIN};
+
+		return poll(&pfd, 1, 0) > 0;
+	}
+
+	void WaylandApplication::PumpSystemEventLoopOnce()
+	{
+		if(wl_display* display = m_waylandConnectionManager->GetWaylandDisplay()){
+			if(wl_display_dispatch_pending(display) == 0){
+				//no pending events, read new events
+				wl_display_flush(display);
+				wl_display_prepare_read(display);
+
+				if(HasEventsWaiting()){
+					wl_display_read_events(display);
+					wl_display_dispatch_pending(display);
+				}else{
+					wl_display_cancel_read(display);
+				}
+			}
+		}
+	}
+
+	void WaylandApplication::PumpSystemEventLoopUntilEmpty()
+	{
+		if(wl_display* display = m_waylandConnectionManager->GetWaylandDisplay()) {
+			while (true) {
+				if (wl_display_dispatch_pending(display) == 0) {
+					//no pending events, read new events
+					wl_display_flush(display);
+					wl_display_prepare_read(display);
+
+					if (HasEventsWaiting()) {
+						wl_display_read_events(display);
+						wl_display_dispatch_pending(display);
+					} else {
+						wl_display_cancel_read(display);
+						break; //no events are pending
+					}
+				}
+			}
+		}
+	}
+}

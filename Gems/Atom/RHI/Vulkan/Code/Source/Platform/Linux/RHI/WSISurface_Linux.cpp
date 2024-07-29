@@ -15,6 +15,10 @@
 #include <AzFramework/XcbConnectionManager.h>
 #endif
 
+#if PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND
+#include <AzFramework/WaylandConnectionManager.h>
+#endif
+
 namespace AZ
 {
     namespace Vulkan
@@ -44,8 +48,27 @@ namespace AZ
 
             return ConvertResult(result);
 #elif PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND
-            #error "Linux Window Manager Wayland not supported."
-            return RHI::ResultCode::Unimplemented;
+			wl_display* display = nullptr;
+			if(auto wlConManager = AzFramework::WaylandConnectionManagerInterface::Get();
+					wlConManager != nullptr)
+			{
+				display = wlConManager->GetWaylandDisplay();
+			}
+			if(display == nullptr){
+				AZ_Error("AtomVulkan_RHI", display!=nullptr, "Unable to get Wayland Display.");
+				return RHI::ResultCode::Fail;
+			}
+
+			VkWaylandSurfaceCreateInfoKHR createInfo{};
+			createInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+			createInfo.pNext = nullptr;
+			createInfo.flags = 0;
+			createInfo.display = display;
+			createInfo.surface = (wl_surface*)m_descriptor.m_windowHandle.GetIndex();
+			const VkResult result = instance.GetContext().CreateWaylandSurfaceKHR(instance.GetNativeInstance(), &createInfo, VkSystemAllocator::Get(), &m_nativeSurface);
+			AssertSuccess(result);
+
+            return ConvertResult(result);
 #else
             #error "Linux Window Manager not recognized."
             return RHI::ResultCode::Unimplemented;

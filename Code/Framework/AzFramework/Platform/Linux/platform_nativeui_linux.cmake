@@ -31,6 +31,18 @@ if (${PAL_TRAIT_LINUX_WINDOW_MANAGER} STREQUAL "xcb")
 elseif(PAL_TRAIT_LINUX_WINDOW_MANAGER STREQUAL "wayland")
 
     set(LY_COMPILE_DEFINITIONS PUBLIC PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND)
+    set(LY_INCLUDE_DIRECTORIES
+        PUBLIC
+            Platform/Common/Wayland
+    )
+    set(LY_FILES_CMAKE
+            Platform/Common/Wayland/azframework_wayland_files.cmake
+    )
+    set(LY_BUILD_DEPENDENCIES
+        PRIVATE
+            3rdParty::X11::xkbcommon
+            wayland-client
+    )
 
 else()
 
