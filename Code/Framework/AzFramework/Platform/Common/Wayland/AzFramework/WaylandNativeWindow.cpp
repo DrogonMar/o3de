@@ -21,7 +21,7 @@ namespace AzFramework
 
 
 	void WaylandNativeWindow::SurfaceEnter(void *data,
-							 struct wl_surface *wl_surface,
+							 struct wl_surface */*wl_surface*/,
 							 struct wl_output *output)
 	{
 		auto self = (AzFramework::WaylandNativeWindow*)data;
@@ -41,28 +41,28 @@ namespace AzFramework
 		}
 	}
 
-	void WaylandNativeWindow::SurfaceLeave(void *data,
-							 struct wl_surface *wl_surface,
-							 struct wl_output *output)
+	void WaylandNativeWindow::SurfaceLeave(void */*data*/,
+							 struct wl_surface */*wl_surface*/,
+							 struct wl_output */*output*/)
 	{
 
 	}
 
-	void WaylandNativeWindow::SurfacePreferredScale(void *data,
-									  struct wl_surface *wl_surface,
-									  int32_t factor)
+	void WaylandNativeWindow::SurfacePreferredScale(void */*data*/,
+									  struct wl_surface */*wl_surface*/,
+									  int32_t /*factor*/)
 	{
 
 	}
 
-	void WaylandNativeWindow::SurfacePreferredTransform(void *data,
-										  struct wl_surface *wl_surface,
-										  uint32_t transform)
+	void WaylandNativeWindow::SurfacePreferredTransform(void */*data*/,
+										  struct wl_surface */*wl_surface*/,
+										  uint32_t /*transform*/)
 	{
 
 	}
 
-	void WaylandNativeWindow::XdgSurfaceConfigure(void* data, struct xdg_surface* xdg_surface, uint32_t serial){
+	void WaylandNativeWindow::XdgSurfaceConfigure(void* /*data*/, struct xdg_surface* xdg_surface, uint32_t serial){
 		xdg_surface_ack_configure(xdg_surface, serial);
 	}
 
@@ -75,7 +75,7 @@ namespace AzFramework
 
 	}
 
-	void WaylandNativeWindow::XdgTopLevelClose(void *data, struct xdg_toplevel *xdg_toplevel){
+	void WaylandNativeWindow::XdgTopLevelClose(void *data, struct xdg_toplevel */*xdg_toplevel*/){
 		auto self = (AzFramework::WaylandNativeWindow*)data;
 		self->Deactivate();
 	}

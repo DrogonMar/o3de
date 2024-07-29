@@ -138,19 +138,16 @@ namespace AzFramework
 		wl_pointer* m_pointer = nullptr;
 		zwp_relative_pointer_v1* m_relPointer = nullptr;
 		wp_cursor_shape_device_v1* m_shapeDevice = nullptr;
-		zwp_confined_pointer_v1* m_confinedPointer = nullptr;
+		zwp_locked_pointer_v1* m_lockedPointer = nullptr;
 
 		wl_region* m_confinedRegion = nullptr;
 		WindowGeometry m_currentRegion = {0,0,0,0};
 
 		uint32_t m_currentSerial = UINT32_MAX;
-		AzFramework::SystemCursorState m_cursorState;
+		AzFramework::SystemCursorState m_cursorState = SystemCursorState::Unknown;
 		class WaylandNativeWindow* m_focusedWindow = nullptr;
 
-		bool m_useRelMovement = false;
-
 		AZ::Vector2 m_position = AZ::Vector2::CreateZero();
-		AZ::Vector2 m_surfaceSize = AZ::Vector2::CreateZero();
 
 		//Pointer axis event
 		enum PointerEventMask : uint32_t {
@@ -175,6 +172,6 @@ namespace AzFramework
 				int32_t m_discrete;
 			} m_axis[2];
 			uint32_t m_axisSource;
-		} m_axisEvent;
+		} m_axisEvent = {};
 	};
 }

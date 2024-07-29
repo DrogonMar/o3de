@@ -105,16 +105,16 @@ namespace AzFramework
 		bool m_activated = false;
 
 		//Globals cache
-		wl_display* m_display;
-		wl_compositor* m_compositor;
-		xdg_wm_base* m_xdgShell;
-		zxdg_decoration_manager_v1* m_xdgDecor;
+		wl_display* m_display = nullptr;
+		wl_compositor* m_compositor = nullptr;
+		xdg_wm_base* m_xdgShell = nullptr;
+		zxdg_decoration_manager_v1* m_xdgDecor = nullptr;
 
 		//Per window
-		wl_surface* m_surface;
-		xdg_surface* m_xdgSurface;
-		xdg_toplevel* m_xdgToplevel;
-		zxdg_toplevel_decoration_v1* m_xdgTopLevelDecor;
+		wl_surface* m_surface = nullptr;
+		xdg_surface* m_xdgSurface = nullptr;
+		xdg_toplevel* m_xdgToplevel = nullptr;
+		zxdg_toplevel_decoration_v1* m_xdgTopLevelDecor = nullptr;
 
 		wl_output* m_currentEnteredOutput = nullptr;
 		wl_output* m_currentFullscreen = nullptr;
@@ -123,7 +123,7 @@ namespace AzFramework
 		WaylandInputDeviceKeyboard* m_focusedKeyboard = nullptr;
 
 		//
-		uint32_t m_currentRefreshMhz;
+		uint32_t m_currentRefreshMhz = 0;
 		uint32_t m_currentRefreshFramerate = 60;
 
 		float m_dpiScaleFactor = 1.0f;

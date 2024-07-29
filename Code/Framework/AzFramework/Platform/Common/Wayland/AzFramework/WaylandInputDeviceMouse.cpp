@@ -18,7 +18,7 @@ namespace AzFramework
 	AZ_CVAR(bool, wl_accel, 1, nullptr, AZ::ConsoleFunctorFlags::Null, "Set to use accelerated values.");
 
 	void WaylandInputDeviceMouse::PointerEnter(void *data,
-							 struct wl_pointer *wl_pointer,
+							 struct wl_pointer */*wl_pointer*/,
 							 uint32_t serial,
 							 struct wl_surface *surface,
 							 wl_fixed_t surface_x,
@@ -45,7 +45,7 @@ namespace AzFramework
 	}
 
 	void WaylandInputDeviceMouse::PointerLeave(void *data,
-							 struct wl_pointer *wl_pointer,
+							 struct wl_pointer */*wl_pointer*/,
 							 uint32_t serial,
 							 struct wl_surface *surface)
 	{
@@ -67,19 +67,19 @@ namespace AzFramework
 	}
 
 	void WaylandInputDeviceMouse::PointerMotion(void *data,
-							  struct wl_pointer *wl_pointer,
-							  uint32_t time,
+							  struct wl_pointer */*wl_pointer*/,
+							  uint32_t /*time*/,
 							  wl_fixed_t surface_x,
 							  wl_fixed_t surface_y)
 	{
 		auto self = static_cast<WaylandInputDeviceMouse*>(data);
-		self->m_position = AZ::Vector2(wl_fixed_to_double(surface_x), wl_fixed_to_double(surface_y));
+		self->m_position = AZ::Vector2((float)wl_fixed_to_double(surface_x), (float)wl_fixed_to_double(surface_y));
 	}
 
 	void WaylandInputDeviceMouse::PointerButton(void *data,
-							  struct wl_pointer *wl_pointer,
-							  uint32_t serial,
-							  uint32_t time,
+							  struct wl_pointer */*wl_pointer*/,
+							  uint32_t /*serial*/,
+							  uint32_t /*time*/,
 							  uint32_t button,
 							  uint32_t state)
 	{
@@ -109,7 +109,7 @@ namespace AzFramework
 	}
 
 	void WaylandInputDeviceMouse::PointerAxis(void *data,
-							struct wl_pointer *wl_pointer,
+							struct wl_pointer */*wl_pointer*/,
 							uint32_t time,
 							uint32_t axis,
 							wl_fixed_t value)
@@ -122,7 +122,7 @@ namespace AzFramework
 	}
 
 	void WaylandInputDeviceMouse::PointerAxisSource(void *data,
-								  struct wl_pointer *wl_pointer,
+								  struct wl_pointer */*wl_pointer*/,
 								  uint32_t axis_source)
 	{
 		auto self = static_cast<WaylandInputDeviceMouse*>(data);
@@ -131,7 +131,7 @@ namespace AzFramework
 	}
 
 	void WaylandInputDeviceMouse::PointerAxisStop(void *data,
-								struct wl_pointer *wl_pointer,
+								struct wl_pointer */*wl_pointer*/,
 								uint32_t time,
 								uint32_t axis)
 	{
@@ -142,7 +142,7 @@ namespace AzFramework
 	}
 
 	void WaylandInputDeviceMouse::PointerAxisDiscrete(void *data,
-									struct wl_pointer *wl_pointer,
+									struct wl_pointer */*wl_pointer*/,
 									uint32_t axis,
 									int32_t discrete)
 	{
@@ -152,25 +152,25 @@ namespace AzFramework
 		self->m_axisEvent.m_axis[axis].m_discrete = discrete;
 	}
 
-	void WaylandInputDeviceMouse::PointerAxisValue120(void *data,
-									struct wl_pointer *wl_pointer,
-									uint32_t axis,
-									int32_t value120)
+	void WaylandInputDeviceMouse::PointerAxisValue120(void */*data*/,
+									struct wl_pointer */*wl_pointer*/,
+									uint32_t /*axis*/,
+									int32_t /*value120*/)
 	{
 
 	}
 
-	void WaylandInputDeviceMouse::PointerAxisRelDir(void *data,
-								  struct wl_pointer *wl_pointer,
-								  uint32_t axis,
-								  uint32_t direction)
+	void WaylandInputDeviceMouse::PointerAxisRelDir(void */*data*/,
+								  struct wl_pointer */*wl_pointer*/,
+								  uint32_t /*axis*/,
+								  uint32_t /*direction*/)
 	{
 
 
 	}
 
 	void WaylandInputDeviceMouse::PointerFrame(void *data,
-											   struct wl_pointer *wl_pointer)
+											   struct wl_pointer *)
 	{
 		auto self = static_cast<WaylandInputDeviceMouse*>(data);
 
@@ -187,9 +187,9 @@ namespace AzFramework
 	}
 
 	void WaylandInputDeviceMouse::RelPointerMotion(void *data,
-												   struct zwp_relative_pointer_v1 *zwp_relative_pointer_v1,
-												   uint32_t utime_hi,
-												   uint32_t utime_lo,
+												   struct zwp_relative_pointer_v1 *,
+												   uint32_t,
+												   uint32_t,
 												   wl_fixed_t dx,
 												   wl_fixed_t dy,
 												   wl_fixed_t dx_unaccel,
@@ -207,10 +207,10 @@ namespace AzFramework
 		}
 
 		if(x != 0){
-			self->QueueRawMovementEvent(InputDeviceMouse::Movement::X, wl_fixed_to_double(x));
+			self->QueueRawMovementEvent(InputDeviceMouse::Movement::X, (float)wl_fixed_to_double(x));
 		}
 		if(y != 0){
-			self->QueueRawMovementEvent(InputDeviceMouse::Movement::Y, wl_fixed_to_double(y));
+			self->QueueRawMovementEvent(InputDeviceMouse::Movement::Y, (float)wl_fixed_to_double(y));
 		}
 	}
 
@@ -307,9 +307,10 @@ namespace AzFramework
 
 	void WaylandInputDeviceMouse::SetSystemCursorPositionNormalized(AZ::Vector2)
 	{
-		//Cant do this on wayland with normal confined cursor.
-		//Need to use locked cursor and draw our own to do this.
-		return;
+		//We can do this when locked but only as a hint to the compositor
+		//that we want the cursor to show up at that location when unlocked.
+		//I think O3DE uses this to warp the cursor somewhere when unlocked which in that case
+		//won't work.
 	}
 
 	AZ::Vector2 WaylandInputDeviceMouse::GetSystemCursorPositionNormalized() const
@@ -384,7 +385,7 @@ namespace AzFramework
 	{
 		if(wantConstraints)
 		{
-			if(m_confinedPointer != nullptr)
+			if(m_lockedPointer != nullptr)
 			{
 				//Already confined
 				return;
@@ -401,11 +402,11 @@ namespace AzFramework
 				void* constraintWindowRawPtr = nullptr;
 				InputSystemCursorConstraintRequestBus::BroadcastResult(constraintWindowRawPtr,
 																	   &InputSystemCursorConstraintRequestBus::Events::GetSystemCursorConstraintWindow);
-				auto contraintWlWindow = (WaylandNativeWindow*)constraintWindowRawPtr;
-				if(contraintWlWindow == nullptr)
+				auto constraintWlWindow = (WaylandNativeWindow*)constraintWindowRawPtr;
+				if(constraintWlWindow == nullptr)
 				{
 					//Use focused
-					contraintWlWindow = m_focusedWindow;
+					constraintWlWindow = m_focusedWindow;
 				}
 
 				//Remove our old region
@@ -415,7 +416,7 @@ namespace AzFramework
 								   (int32_t)m_currentRegion.m_width,
 								   (int32_t)m_currentRegion.m_height);
 
-				auto constraintSize = contraintWlWindow->GetClientAreaSize();
+				const auto constraintSize = constraintWlWindow->GetClientAreaSize();
 				m_currentRegion = {0,0, constraintSize.m_width, constraintSize.m_height};
 				wl_region_add(m_confinedRegion,
 							  (int32_t)m_currentRegion.m_posX,
@@ -423,8 +424,8 @@ namespace AzFramework
 							  (int32_t)m_currentRegion.m_width,
 							  (int32_t)m_currentRegion.m_height);
 
-				m_confinedPointer =
-					zwp_pointer_constraints_v1_confine_pointer(constraintsManager->GetConstraints(),
+				m_lockedPointer =
+					zwp_pointer_constraints_v1_lock_pointer(constraintsManager->GetConstraints(),
 															   (wl_surface*)m_focusedWindow->GetWindowHandle(),
 															   m_pointer,
 															   m_confinedRegion,
@@ -436,11 +437,11 @@ namespace AzFramework
 		}
 		else
 		{
-			if(m_confinedPointer)
+			if(m_lockedPointer)
 			{
 				//Dont want constraints anymore
-				zwp_confined_pointer_v1_destroy(m_confinedPointer);
-				m_confinedPointer = nullptr;
+				zwp_locked_pointer_v1_destroy(m_lockedPointer);
+				m_lockedPointer = nullptr;
 				return;
 			}
 		}
