@@ -51,7 +51,11 @@ namespace AzFramework
 													int32_t fd,
 													uint32_t size)
 	{
-		AZ_Error("WaylandInputDeviceKeyboard", format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, "Given keyboard format isn't XKB_V1");
+		if(format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1)
+		{
+			AZ_Error("WaylandInputDeviceKeyboard", false, "Given keyboard format isn't XKB_V1");
+			return;
+		}
 		auto self = static_cast<WaylandInputDeviceKeyboard*>(data);
 
 		char* map_shm = static_cast<char *>(mmap(nullptr, size, PROT_READ, MAP_SHARED, fd, 0));
@@ -189,7 +193,7 @@ namespace AzFramework
 
 	void WaylandInputDeviceKeyboard::TickInputDevice()
 	{
-		if(!m_currentHeldKey.empty())
+		if(!m_currentHeldKey.empty() && m_repeatRatePerSec != 0)
 		{
 			AZ::TimeMs currentElapsed;
 			AZ::ITimeRequestBus::BroadcastResult(currentElapsed, &AZ::ITimeRequestBus::Events::GetRealElapsedTimeMs);
