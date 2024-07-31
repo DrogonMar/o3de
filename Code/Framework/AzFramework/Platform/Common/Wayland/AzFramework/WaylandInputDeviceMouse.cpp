@@ -74,6 +74,10 @@ namespace AzFramework
 	{
 		auto self = static_cast<WaylandInputDeviceMouse*>(data);
 		self->m_position = AZ::Vector2((float)wl_fixed_to_double(surface_x), (float)wl_fixed_to_double(surface_y));
+		if(self->m_focusedWindow)
+		{
+			self->m_position *= self->m_focusedWindow->GetDpiScaleFactor();
+		}
 	}
 
 	void WaylandInputDeviceMouse::PointerButton(void *data,

@@ -28,6 +28,7 @@ namespace AzFramework
 		WaylandSeat(wl_seat* inseat) : m_seat(inseat) {}
 
 		wl_seat* m_seat;
+        uint32_t m_registryId;
 		uint32_t m_playerIdx;
 		bool m_supportsPointer = false;
 		bool m_supportsKeyboard = false;
@@ -48,7 +49,6 @@ namespace AzFramework
 			: m_waylandDisplay(wl_display_connect(nullptr))
 		{
 			AZ_Error("Application", m_waylandDisplay != nullptr, "Unable to connect to Wayland Display.");
-
 			m_fd = wl_display_get_fd(m_waylandDisplay.get());
 
 			m_registry = wl_display_get_registry(m_waylandDisplay.get());
@@ -99,6 +99,22 @@ namespace AzFramework
 		void DoRoundtrip() const override{
 			wl_display_roundtrip(m_waylandDisplay.get());
 		}
+
+        void CheckErrors() const override
+        {
+            int errorCode = wl_display_get_error(m_waylandDisplay.get());
+            if (errorCode == EPROTO)
+            {
+                const wl_interface* anInterface;
+                uint32_t interfaceId;
+                auto code = wl_display_get_protocol_error(m_waylandDisplay.get(), &anInterface, &interfaceId);
+                if(anInterface != nullptr)
+                {
+                    WaylandInterfaceNotificationsBus::Event(interfaceId, &WaylandInterfaceNotificationsBus::Events::OnProtocolError, interfaceId, code);
+                }
+            }
+
+        }
 
 		int GetDisplayFD() const override{
 			return m_fd;
@@ -156,6 +172,10 @@ namespace AzFramework
 
 		wp_cursor_shape_device_v1 * GetCursorShapeDevice(wl_pointer *pointer) override
 		{
+            if(m_cursorManager == nullptr)
+            {
+                return nullptr;
+            }
 			return wp_cursor_shape_manager_v1_get_pointer(m_cursorManager, pointer);
 		}
 
@@ -185,12 +205,14 @@ namespace AzFramework
 			{
 				self->m_compositor =
 					static_cast<wl_compositor*>(wl_registry_bind(registry, id, &wl_compositor_interface, version));
+                self->m_compositorId = id;
 			}
 			else if (IS_INTERFACE(wl_seat_interface))
 			{
 				auto seat =
 					static_cast<wl_seat*>(wl_registry_bind(registry, id, &wl_seat_interface, version));
 				auto info = new WaylandSeat(seat);
+                info->m_registryId = id;
 				info->m_playerIdx = self->GetAvailablePlayerIdx();
 				wl_seat_add_listener(seat, &self->s_seat_listener, info);
 
@@ -200,16 +222,19 @@ namespace AzFramework
 			{
 				self->m_cursorManager =
 					static_cast<wp_cursor_shape_manager_v1*>(wl_registry_bind(registry, id, &wp_cursor_shape_manager_v1_interface, version));
+                self->m_cursorManagerId = id;
 			}
 			else if (IS_INTERFACE(zwp_pointer_constraints_v1_interface))
 			{
 				self->m_constraintsManager =
 					static_cast<zwp_pointer_constraints_v1*>(wl_registry_bind(registry, id, &zwp_pointer_constraints_v1_interface, version));
+                self->m_constraintsManagerId = id;
 			}
 			else if (IS_INTERFACE(zwp_relative_pointer_manager_v1_interface))
 			{
 				self->m_relativePointerManager =
 					static_cast<zwp_relative_pointer_manager_v1*>(wl_registry_bind(registry, id, &zwp_relative_pointer_manager_v1_interface, version));
+                self->m_relativePointerManagerId = id;
 			}
 			else
 			{
@@ -224,7 +249,7 @@ namespace AzFramework
 
 		static void GlobalRegistryRemove(void* data, wl_registry* registry, uint32_t id){
 			auto self = static_cast<WaylandConnectionManagerImpl*>(data);
-			if(wl_proxy_get_id((wl_proxy*)self->m_compositor) == id){
+			if(self->m_compositorId == id){
 				//OH GOD OH NO!
 			}
 			else if (self->m_seats.find(id) != self->m_seats.end()){
@@ -235,20 +260,23 @@ namespace AzFramework
 				wl_seat_destroy(seat->m_seat);
 				delete seat;
 			}
-			else if (wl_proxy_get_id((wl_proxy*)self->m_cursorManager))
+			else if (self->m_cursorManagerId == id)
 			{
 				wp_cursor_shape_manager_v1_destroy(self->m_cursorManager);
 				self->m_cursorManager = nullptr;
+                self->m_cursorManagerId = 0;
 			}
-			else if (wl_proxy_get_id((wl_proxy*)self->m_constraintsManager))
+			else if (self->m_constraintsManagerId == id)
 			{
 				zwp_pointer_constraints_v1_destroy(self->m_constraintsManager);
 				self->m_constraintsManager = nullptr;
+                self->m_constraintsManagerId = 0;
 			}
-			else if (wl_proxy_get_id((wl_proxy*)self->m_relativePointerManager))
+			else if (self->m_relativePointerManagerId == id)
 			{
 				zwp_relative_pointer_manager_v1_destroy(self->m_relativePointerManager);
 				self->m_relativePointerManager = nullptr;
+                self->m_relativePointerManagerId = 0;
 			}
 			else{
 				WaylandRegistryEventsBus::Broadcast(
@@ -308,10 +336,14 @@ namespace AzFramework
 		WaylandUniquePtr<wl_display, wl_display_disconnect> m_waylandDisplay = nullptr;
 		wl_registry* m_registry = nullptr;
 		wl_compositor* m_compositor = nullptr;
+        uint32_t m_compositorId = 0;
 		xkb_context* m_xkbContext = nullptr;
 		wp_cursor_shape_manager_v1* m_cursorManager = nullptr;
+        uint32_t m_cursorManagerId = 0;
 		zwp_pointer_constraints_v1* m_constraintsManager = nullptr;
+        uint32_t m_constraintsManagerId = 0;
 		zwp_relative_pointer_manager_v1* m_relativePointerManager = nullptr;
+        uint32_t m_relativePointerManagerId = 0;
 
 		//Registry id -> WaylandSeat Ptr
 		AZStd::map<uint32_t, WaylandSeat*> m_seats;
@@ -332,6 +364,7 @@ namespace AzFramework
 		: public XdgShellConnectionManager
 		, public XdgDecorConnectionManager
 		, public WaylandRegistryEventsBus::Handler
+        , public WaylandInterfaceNotificationsBus::MultiHandler
 	{
 	public:
 		XdgManagerImpl(){
@@ -362,11 +395,18 @@ namespace AzFramework
 			zxdg_decoration_manager_v1_destroy(m_decor);
 		}
 
-		xdg_wm_base * GetXdgWmBase() const override{
+        uint32_t GetXdgWmBaseRegistryId() const override
+        {
+            return m_xdgId;
+        }
+
+		xdg_wm_base * GetXdgWmBase() const override
+        {
 			return m_xdg;
 		}
 
-		zxdg_decoration_manager_v1 * GetXdgDecor() const override{
+		zxdg_decoration_manager_v1 * GetXdgDecor() const override
+        {
 			return m_decor;
 		}
 
@@ -375,17 +415,88 @@ namespace AzFramework
 				m_xdg =
 					static_cast<xdg_wm_base*>(wl_registry_bind(registry, id, &xdg_wm_base_interface, version));
 				xdg_wm_base_add_listener(m_xdg, &s_xdg_wm_listener, this);
+                m_xdgId = id;
+                WaylandInterfaceNotificationsBus::MultiHandler::BusConnect(m_xdgId);
 			}else if(IS_INTERFACE(zxdg_decoration_manager_v1_interface)){
 				m_decor =
 					static_cast<zxdg_decoration_manager_v1*>(wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, version));
+                m_decorId = id;
+                WaylandInterfaceNotificationsBus::MultiHandler::BusConnect(m_decorId);
 			}
 		}
 
-		void OnUnregister(wl_registry *, uint32_t) override{
-
+		void OnUnregister(wl_registry *, uint32_t id) override{
+            if(m_xdgId == id)
+            {
+                WaylandInterfaceNotificationsBus::MultiHandler::BusDisconnect(m_xdgId);
+                m_xdgId = 0;
+                xdg_wm_base_destroy(m_xdg);
+                m_xdg = nullptr;
+            }else if(m_decorId == id)
+            {
+                WaylandInterfaceNotificationsBus::MultiHandler::BusDisconnect(m_decorId);
+                m_decorId = 0;
+                zxdg_decoration_manager_v1_destroy(m_decor);
+                m_decor = nullptr;
+            }
 		}
 
-		static void XdgPing(void* data, xdg_wm_base* xdg, uint32_t serial){
+        void OnProtocolError(uint32_t registryId, uint32_t errorCode) override
+        {
+            auto conn = WaylandConnectionManagerInterface::Get();
+            if(!conn)
+            {
+                return;
+            }
+            if(m_xdgId == registryId)
+            {
+                switch (errorCode) {
+                    case XDG_WM_BASE_ERROR_ROLE:
+                        AZ_Error("XDG", false, "Given surface has other role.");
+                        break;
+                    case XDG_WM_BASE_ERROR_DEFUNCT_SURFACES:
+                        AZ_Error("XDG", false, "xdg_wm_base was destroyed before children");
+                        break;
+                    case XDG_WM_BASE_ERROR_NOT_THE_TOPMOST_POPUP:
+                        AZ_Error("XDG", false, "Tried to map or destroy a non-topmost popup");
+                        break;
+                    case XDG_WM_BASE_ERROR_INVALID_POPUP_PARENT:
+                        AZ_Error("XDG", false, "Invalid popup parent surface.");
+                        break;
+                    case XDG_WM_BASE_ERROR_INVALID_SURFACE_STATE:
+                        AZ_Error("XDG", false, "Invalid surface state");
+                        break;
+                    case XDG_WM_BASE_ERROR_INVALID_POSITIONER:
+                        AZ_Error("XDG", false, "Invalid positioner.");
+                        break;
+                    case XDG_WM_BASE_ERROR_UNRESPONSIVE:
+                        AZ_Error("XDG", false, "Didn't ping in time");
+                        break;
+                    default:
+                        AZ_Error("XDG", false, "Unknown error");
+                        break;
+                }
+            }else if(m_decorId == registryId)
+            {
+                switch (errorCode) {
+                    case ZXDG_TOPLEVEL_DECORATION_V1_ERROR_UNCONFIGURED_BUFFER:
+                        AZ_Error("XDG Decor", false, "TopLevel has a buffer attached before configure.");
+                        break;
+                    case ZXDG_TOPLEVEL_DECORATION_V1_ERROR_ALREADY_CONSTRUCTED:
+                        AZ_Error("XDG Decor", false, "TopLevel already has a decoration object.");
+                        break;
+                    case ZXDG_TOPLEVEL_DECORATION_V1_ERROR_ORPHANED:
+                        AZ_Error("XDG Decor", false, "TopLevel destroyed before the decoration object.");
+                        break;
+                    default:
+                        AZ_Error("XDG Decor", false, "Unknown error");
+                        break;
+                }
+            }
+        }
+
+		static void XdgPing(void* data, xdg_wm_base* xdg, uint32_t serial)
+        {
 			//You ping, I pong :)
 			xdg_wm_base_pong(xdg, serial);
 		}
@@ -397,7 +508,9 @@ namespace AzFramework
 
 	private:
 		xdg_wm_base* m_xdg;
+        uint32_t m_xdgId;
 		zxdg_decoration_manager_v1* m_decor;
+        uint32_t m_decorId;
 	};
 
 	struct OutputInfo {
@@ -627,40 +740,51 @@ namespace AzFramework
 
 	void WaylandApplication::PumpSystemEventLoopOnce()
 	{
-		if(wl_display* display = m_waylandConnectionManager->GetWaylandDisplay()){
-			if(wl_display_dispatch_pending(display) == 0){
+		if(wl_display* display = m_waylandConnectionManager->GetWaylandDisplay())
+        {
+			if(wl_display_dispatch_pending(display) == 0)
+            {
 				//no pending events, read new events
 				wl_display_flush(display);
 				wl_display_prepare_read(display);
 
-				if(HasEventsWaiting()){
+				if(HasEventsWaiting())
+                {
 					wl_display_read_events(display);
 					wl_display_dispatch_pending(display);
-				}else{
+				} else
+                {
 					wl_display_cancel_read(display);
 				}
 			}
 		}
+        m_waylandConnectionManager->CheckErrors();
 	}
 
 	void WaylandApplication::PumpSystemEventLoopUntilEmpty()
 	{
-		if(wl_display* display = m_waylandConnectionManager->GetWaylandDisplay()) {
-			while (true) {
-				if (wl_display_dispatch_pending(display) == 0) {
+		if(wl_display* display = m_waylandConnectionManager->GetWaylandDisplay())
+        {
+			while (true)
+            {
+				if (wl_display_dispatch_pending(display) == 0)
+                {
 					//no pending events, read new events
 					wl_display_flush(display);
 					wl_display_prepare_read(display);
 
-					if (HasEventsWaiting()) {
+					if (HasEventsWaiting())
+                    {
 						wl_display_read_events(display);
 						wl_display_dispatch_pending(display);
-					} else {
+					} else
+                    {
 						wl_display_cancel_read(display);
 						break; //no events are pending
 					}
 				}
 			}
 		}
+        m_waylandConnectionManager->CheckErrors();
 	}
 }

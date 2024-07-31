@@ -18,6 +18,23 @@
 
 namespace AzFramework
 {
+    typedef uint16_t WaylandWindowFlags;
+
+    enum WaylandWindowFlags_ : uint16_t
+    {
+        WaylandWindowFlags_None            = 0,
+        WaylandWindowFlags_CanFullscreen   = 1 << 0, //Will the compositor even let us fullscreen?
+        WaylandWindowFlags_InFullscreen    = 1 << 1, //In fullscreen
+    };
+
+    enum XdgSurfaceEventMask : uint16_t
+    {
+        XSCM_Enter = 1 << 0,
+        XSCM_Leave = 1 << 1,
+        XSCM_Bounds= 1 << 2,
+        XSCM_WmCaps= 1 << 3,
+    };
+
 	class WaylandNativeWindow final
 		: public NativeWindow::Implementation
 	{
@@ -32,8 +49,13 @@ namespace AzFramework
 		void InitWindowInternal(const AZStd::string &title, const AzFramework::WindowGeometry &geometry, const AzFramework::WindowStyleMasks &styleMasks) override;
 		NativeWindowHandle GetWindowHandle() const override;
 
+		void InternalWindowSizeChanged(uint32_t newWidth, uint32_t newHeight);
+
+		void UpdateBufferScale();
+
 		void SetWindowTitle(const AZStd::string &title) override;
 		bool SupportsClientAreaResize() const override;
+		void ResizeClientArea(AzFramework::WindowSize clientAreaSize, const AzFramework::WindowPosOptions &options) override;
 
 		float GetDpiScaleFactor() const override;
 		uint32_t GetDisplayRefreshRate() const override;
@@ -41,8 +63,11 @@ namespace AzFramework
 		void UpdateRefreshRate(uint32_t newRefreshMhz);
 		void UpdateScaleFactor(float newScale);
 
+        WindowSize GetMaximumClientAreaSize() const override;
+
 		bool GetFullScreenState() const override;
 		void SetFullScreenState(bool fullScreenState) override;
+        bool CanToggleFullScreenState() const override;
 
 		void SetPointerFocus(WaylandInputDeviceMouse* pointer);
 		void SetKeyboardFocus(WaylandInputDeviceKeyboard* keyboard);
@@ -74,7 +99,7 @@ namespace AzFramework
 		static void XdgSurfaceConfigure(void* data, struct xdg_surface* xdg_surface, uint32_t serial);
 
 		const xdg_surface_listener s_xdgSurfaceListener = {
-			.configure = XdgSurfaceConfigure
+			.configure = XdgSurfaceConfigure,
 		};
 
 		static void XdgTopLevelConfigure(void *,
@@ -102,7 +127,7 @@ namespace AzFramework
 		};
 
 	private:
-		bool m_activated = false;
+        WaylandWindowFlags m_flags = WaylandWindowFlags_None;
 
 		//Globals cache
 		wl_display* m_display = nullptr;
@@ -116,8 +141,8 @@ namespace AzFramework
 		xdg_toplevel* m_xdgToplevel = nullptr;
 		zxdg_toplevel_decoration_v1* m_xdgTopLevelDecor = nullptr;
 
+        WindowSize m_recommendedGeoBounds = {};
 		wl_output* m_currentEnteredOutput = nullptr;
-		wl_output* m_currentFullscreen = nullptr;
 
 		WaylandInputDeviceMouse* m_focusedCursor = nullptr;
 		WaylandInputDeviceKeyboard* m_focusedKeyboard = nullptr;
@@ -127,5 +152,13 @@ namespace AzFramework
 		uint32_t m_currentRefreshFramerate = 60;
 
 		float m_dpiScaleFactor = 1.0f;
+
+
+        struct
+        {
+            bool m_fullscreen = false;
+            bool m_resize = false;
+            AzFramework::WindowSize m_size = {};
+        } m_pending;
 	};
 }

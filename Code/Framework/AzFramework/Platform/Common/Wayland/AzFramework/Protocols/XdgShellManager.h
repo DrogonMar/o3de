@@ -25,6 +25,7 @@ namespace AzFramework
 
 		virtual ~XdgShellConnectionManager() = default;
 
+        virtual uint32_t GetXdgWmBaseRegistryId() const = 0;
 		virtual xdg_wm_base* GetXdgWmBase() const = 0;
 	};
 

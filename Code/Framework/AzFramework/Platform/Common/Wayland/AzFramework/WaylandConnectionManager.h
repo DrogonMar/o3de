@@ -25,6 +25,7 @@ namespace AzFramework
 		virtual ~WaylandConnectionManager() = default;
 
 		virtual void DoRoundtrip() const = 0;
+		virtual void CheckErrors() const = 0;
 
 		virtual int GetDisplayFD() const = 0;
 		virtual wl_display* GetWaylandDisplay() const = 0;

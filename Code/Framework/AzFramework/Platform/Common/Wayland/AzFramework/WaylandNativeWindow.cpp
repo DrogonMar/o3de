@@ -17,10 +17,59 @@
 
 namespace AzFramework
 {
-	[[maybe_unused]] const char WaylandErrorWindow[] = "WaylandNativeWindow";
+    [[maybe_unused]] const char WaylandErrorWindow[] = "WaylandNativeWindow";
+    AZ_CVAR(bool, wl_resize, 0, nullptr, AZ::ConsoleFunctorFlags::Null, "");
+
+    void cvar_wl_fullscreen_Changed(const uint8_t& newFullscreen)
+    {
+        if (newFullscreen == 0 || newFullscreen == 1)
+        {
+
+            NativeWindowHandle defaultWindowHandle = nullptr;
+            WindowSystemRequestBus::BroadcastResult(defaultWindowHandle,
+                                                    &WindowSystemRequestBus::Events::GetDefaultWindowHandle);
+
+            if (!defaultWindowHandle)
+            {
+                AZ_Error(WaylandErrorWindow, false, "Failed to get default window handle.");
+                return;
+            }
+
+            bool canToggleFullScreenStateOfDefaultWindow = false;
+            WindowRequestBus::EventResult(canToggleFullScreenStateOfDefaultWindow,
+                                          defaultWindowHandle,
+                                          &WindowRequestBus::Events::CanToggleFullScreenState);
+            if(!canToggleFullScreenStateOfDefaultWindow)
+            {
+                AZ_Error(WaylandErrorWindow, false, "XDG TopLevel missing or fullscreen unsupported on compositor.");
+                return;
+            }
+
+            bool isFullscreen = false;
+            AzFramework::WindowRequestBus::EventResult(
+                    isFullscreen, defaultWindowHandle,
+                    &AzFramework::WindowRequestBus::Events::GetFullScreenState);
+            if(isFullscreen != newFullscreen)
+            {
+                //changing res
+                WindowRequestBus::Event(defaultWindowHandle, &WindowRequestBus::Events::SetFullScreenState, (bool)newFullscreen);
+                isFullscreen = newFullscreen;
+            }
+
+            if (AZ::IConsole* console = AZ::Interface<AZ::IConsole>::Get(); console)
+            {
+                AZ::CVarFixedString commandString = AZ::CVarFixedString::format("r_fullscreen %u", newFullscreen ? 1 : 0);
+                console->PerformCommand(commandString.c_str());
+            }
+        }
+    }
+
+    AZ_CVAR(uint8_t, wl_fullscreen, 0, cvar_wl_fullscreen_Changed, AZ::ConsoleFunctorFlags::DontReplicate, "WAYLAND ONLY: Make main surface fullscreen.");
 
 
-	void WaylandNativeWindow::SurfaceEnter(void *data,
+
+
+    void WaylandNativeWindow::SurfaceEnter(void *data,
 							 struct wl_surface */*wl_surface*/,
 							 struct wl_output *output)
 	{
@@ -48,11 +97,12 @@ namespace AzFramework
 
 	}
 
-	void WaylandNativeWindow::SurfacePreferredScale(void */*data*/,
+	void WaylandNativeWindow::SurfacePreferredScale(void *data,
 									  struct wl_surface */*wl_surface*/,
-									  int32_t /*factor*/)
+									  int32_t factor)
 	{
-
+		auto self = (AzFramework::WaylandNativeWindow*)data;
+		self->UpdateScaleFactor((float)factor);
 	}
 
 	void WaylandNativeWindow::SurfacePreferredTransform(void */*data*/,
@@ -62,17 +112,67 @@ namespace AzFramework
 
 	}
 
-	void WaylandNativeWindow::XdgSurfaceConfigure(void* /*data*/, struct xdg_surface* xdg_surface, uint32_t serial){
-		xdg_surface_ack_configure(xdg_surface, serial);
+	void WaylandNativeWindow::XdgSurfaceConfigure(void* data, struct xdg_surface* xdg_surface, uint32_t serial)
+    {
+        auto self = (AzFramework::WaylandNativeWindow*)data;
+
+        xdg_surface_ack_configure(xdg_surface, serial);
+
+        if(self->m_pending.m_fullscreen)
+        {
+            self->m_flags |= WaylandWindowFlags_InFullscreen;
+            self->ResizeClientArea(self->m_pending.m_size, {});
+            self->m_pending.m_fullscreen = false;
+            self->m_pending.m_size = {};
+        }
+        else if(self->m_pending.m_resize)
+        {
+            self->ResizeClientArea(self->m_pending.m_size, {});
+            self->m_pending.m_resize = false;
+            self->m_pending.m_size = {};
+        }
+        else if(self->m_pending.m_size != AzFramework::WindowSize())
+        {
+            //If there is no state like resize or fullscreen then its prob just
+            //notifying us of what size we should be, like we just got out of fullscreen, and
+            //now we know our prev size, if o3de calls ResizeClientArea with the same size
+            //it won't matter as this function won't redo anything if it's the same.
+            self->ResizeClientArea(self->m_pending.m_size, {});
+            self->m_pending.m_size = {};
+        }
 	}
 
-	void WaylandNativeWindow::XdgTopLevelConfigure(void *,
-									 struct xdg_toplevel *,
-									 int32_t ,
-									 int32_t ,
-									 struct wl_array *)
+	void WaylandNativeWindow::XdgTopLevelConfigure(void *data,
+                                                   struct xdg_toplevel *xdg_toplevel,
+                                                   int32_t width,
+                                                   int32_t height,
+                                                   struct wl_array *states)
 	{
+        auto self = (AzFramework::WaylandNativeWindow*)data;
 
+        self->m_pending.m_fullscreen = false;
+        self->m_pending.m_resize = false;
+
+        xdg_toplevel_state* state;
+        wl_array_for_each_cpp(state, states) {
+            if(*state == XDG_TOPLEVEL_STATE_FULLSCREEN)
+            {
+                self->m_pending.m_fullscreen = true;
+            }
+            else if(*state == XDG_TOPLEVEL_STATE_RESIZING)
+            {
+                self->m_pending.m_resize = true;
+            }
+        }
+
+        if(width && height)
+        {
+            self->m_pending.m_size = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+        }
+        else
+        {
+            self->m_pending.m_size = {};
+        }
 	}
 
 	void WaylandNativeWindow::XdgTopLevelClose(void *data, struct xdg_toplevel */*xdg_toplevel*/){
@@ -80,19 +180,27 @@ namespace AzFramework
 		self->Deactivate();
 	}
 
-	void WaylandNativeWindow::XdgTopLevelConfigureBounds(void *,
+	void WaylandNativeWindow::XdgTopLevelConfigureBounds(void * data,
 										   struct xdg_toplevel *,
-										   int32_t ,
-										   int32_t )
+										   int32_t width,
+										   int32_t height)
 	{
-
+        auto self = (AzFramework::WaylandNativeWindow*)data;
+        self->m_recommendedGeoBounds = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 	}
 
-	void WaylandNativeWindow::XdgTopLevelWmCaps(void *,
+	void WaylandNativeWindow::XdgTopLevelWmCaps(void *data,
 								  struct xdg_toplevel *,
-								  struct wl_array *)
+								  struct wl_array *caps)
 	{
-
+        auto self = (AzFramework::WaylandNativeWindow*)data;
+        xdg_toplevel_wm_capabilities* cap;
+        wl_array_for_each_cpp(cap, caps) {
+            if(*cap == XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN)
+            {
+                self->m_flags |= WaylandWindowFlags_CanFullscreen;
+            }
+        }
 	}
 
 	WaylandNativeWindow::WaylandNativeWindow()
@@ -125,7 +233,6 @@ namespace AzFramework
 	{
 		if(!m_activated && m_surface != nullptr)
 		{
-			wl_surface_commit(m_surface);
 			m_activated = true;
 		}
 	}
@@ -185,9 +292,9 @@ namespace AzFramework
 			xdg_toplevel_set_title(m_xdgToplevel, title.c_str());
 
 			const uint32_t mask = styleMasks.m_platformAgnosticStyleMask;
-			if(mask & WindowStyleMasks::WINDOW_STYLE_RESIZEABLE){
-				xdg_toplevel_set_min_size(m_xdgToplevel, 0, 0);
-				xdg_toplevel_set_max_size(m_xdgToplevel, INT32_MAX, INT32_MAX);
+			if(mask & WindowStyleMasks::WINDOW_STYLE_RESIZEABLE || wl_resize == true){
+				xdg_toplevel_set_min_size(m_xdgToplevel, 1, 1);
+				xdg_toplevel_set_max_size(m_xdgToplevel, 0, 0);
 			}else{
 				xdg_toplevel_set_min_size(m_xdgToplevel, (int32_t)geometry.m_width, (int32_t)geometry.m_height);
 				xdg_toplevel_set_max_size(m_xdgToplevel, (int32_t)geometry.m_width, (int32_t)geometry.m_height);
@@ -210,6 +317,11 @@ namespace AzFramework
 		m_height = geometry.m_height;
 
 		wl_surface_commit(m_surface);
+        if(auto con = WaylandConnectionManagerInterface::Get())
+        {
+            con->DoRoundtrip();
+        }
+        wl_surface_commit(m_surface);
 	}
 
 	NativeWindowHandle WaylandNativeWindow::GetWindowHandle() const
@@ -217,6 +329,28 @@ namespace AzFramework
 		return reinterpret_cast<NativeWindowHandle>(m_surface);
 	}
 
+	void WaylandNativeWindow::InternalWindowSizeChanged(uint32_t newWidth, uint32_t newHeight)
+	{
+		if(newWidth != m_width || newHeight != m_height)
+		{
+			m_width = newWidth;
+			m_height = newHeight;
+
+			if (m_activated)
+			{
+				WindowNotificationBus::Event(
+					reinterpret_cast<NativeWindowHandle>(m_surface), &WindowNotificationBus::Events::OnWindowResized, m_width, m_height);
+			}
+		}
+	}
+
+	void WaylandNativeWindow::UpdateBufferScale()
+	{
+		if(m_surface != nullptr) {
+			wl_surface_set_buffer_scale(m_surface, (int32_t)m_dpiScaleFactor);
+			AZ_Info(WaylandErrorWindow, "Setting buffer scale to %i", (int32_t)m_dpiScaleFactor);
+		}
+	}
 
 	void WaylandNativeWindow::SetWindowTitle(const AZStd::string &title)
 	{
@@ -228,7 +362,24 @@ namespace AzFramework
 
 	bool WaylandNativeWindow::SupportsClientAreaResize() const
 	{
-		return true;
+		return m_xdgSurface != nullptr;
+	}
+
+	void WaylandNativeWindow::ResizeClientArea(AzFramework::WindowSize clientAreaSize, const WindowPosOptions &options)
+	{
+		if(m_xdgSurface == nullptr || clientAreaSize == AzFramework::WindowSize())
+		{
+			return;
+		}
+        if(clientAreaSize.m_width == m_width && clientAreaSize.m_height == m_height)
+        {
+            return;
+        }
+
+		//TODO: WindowPosOptions::m_ignoreScreenSizeLimit
+		xdg_surface_set_window_geometry(m_xdgSurface, 0, 0, (int32_t)clientAreaSize.m_width, (int32_t)clientAreaSize.m_height);
+        InternalWindowSizeChanged(clientAreaSize.m_width, clientAreaSize.m_height);
+		AZ_Info(WaylandErrorWindow, "Resized client area(normal window geo) to %ix%i", clientAreaSize.m_width, clientAreaSize.m_height);
 	}
 
 	float WaylandNativeWindow::GetDpiScaleFactor() const
@@ -253,16 +404,26 @@ namespace AzFramework
 
 	void WaylandNativeWindow::UpdateScaleFactor(float newScale)
 	{
-		m_dpiScaleFactor = newScale;
-		WindowNotificationBus::Event(
-			GetWindowHandle(),
-			&WindowNotificationBus::Events::OnDpiScaleFactorChanged,
-			m_dpiScaleFactor);
+		if(m_dpiScaleFactor != newScale)
+		{
+			m_dpiScaleFactor = newScale;
+			WindowNotificationBus::Event(
+				GetWindowHandle(),
+				&WindowNotificationBus::Events::OnDpiScaleFactorChanged,
+				m_dpiScaleFactor);
+		}
+
+		UpdateBufferScale();
 	}
+
+    WindowSize WaylandNativeWindow::GetMaximumClientAreaSize() const
+    {
+        return m_recommendedGeoBounds;
+    }
 
 	bool WaylandNativeWindow::GetFullScreenState() const
 	{
-		return m_currentFullscreen != nullptr;
+		return m_flags & WaylandWindowFlags_InFullscreen;
 	}
 
 	void WaylandNativeWindow::SetFullScreenState(bool fullScreenState)
@@ -270,20 +431,38 @@ namespace AzFramework
 		if(m_xdgToplevel == nullptr)
 		{
 			//Cant do fullscreen.
+            AZ_Warning(WaylandErrorWindow, false, "Compositor needs to support XDG TopLevel for fullscreen.");
 			return;
 		}
+
+        if(GetFullScreenState() == fullScreenState)
+        {
+            return;
+        }
 
 		if(fullScreenState)
 		{
 			//Just use what ever output we just entered
-			xdg_toplevel_set_fullscreen(m_xdgToplevel, m_currentEnteredOutput);;
-			m_currentFullscreen = m_currentEnteredOutput;
+			xdg_toplevel_set_fullscreen(m_xdgToplevel, nullptr);
 		}
 		else{
 			xdg_toplevel_unset_fullscreen(m_xdgToplevel);
-			m_currentFullscreen = nullptr;
-		}
+		    m_flags &= ~WaylandWindowFlags_InFullscreen;
+        }
+
+        WindowNotificationBus::Event(
+                reinterpret_cast<NativeWindowHandle>(m_surface), &WindowNotificationBus::Events::OnFullScreenModeChanged, fullScreenState);
 	}
+
+    bool WaylandNativeWindow::CanToggleFullScreenState() const
+    {
+        if(m_xdgToplevel == nullptr)
+        {
+            //No access to top level.
+            return false;
+        }
+        return m_flags & WaylandWindowFlags_CanFullscreen;
+    }
 
 	void WaylandNativeWindow::SetPointerFocus(WaylandInputDeviceMouse *pointer)
 	{

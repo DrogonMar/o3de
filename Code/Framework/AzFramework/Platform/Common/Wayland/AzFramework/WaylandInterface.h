@@ -65,4 +65,26 @@ namespace AzFramework
 		static constexpr AZ::EBusHandlerPolicy HandlerPolicy = AZ::EBusHandlerPolicy::Single;
 		static constexpr AZ::EBusAddressPolicy AddressPolicy = AZ::EBusAddressPolicy::Single;
 	};
+
+    class WaylandInterfaceNotifications
+    {
+    public:
+        AZ_RTTI(WaylandInterfaceNotifications, "{B8748E75-B6E0-48B3-95DC-26D24774E752}");
+
+        virtual ~WaylandInterfaceNotifications() = default;
+
+        virtual void OnProtocolError(uint32_t registryId, uint32_t errorCode) = 0;
+    };
+
+    class WaylandInterfaceNotificationsBusTraits
+            : public AZ::EBusTraits
+    {
+    public:
+        static constexpr AZ::EBusHandlerPolicy HandlerPolicy = AZ::EBusHandlerPolicy::Multiple;
+        static constexpr AZ::EBusAddressPolicy AddressPolicy = AZ::EBusAddressPolicy::ById;
+
+        using BusIdType = uint32_t;
+    };
+
+    using WaylandInterfaceNotificationsBus = AZ::EBus<WaylandInterfaceNotifications, WaylandInterfaceNotificationsBusTraits>;
 }
