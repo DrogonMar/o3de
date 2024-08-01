@@ -67,8 +67,6 @@ namespace AzFramework
     AZ_CVAR(uint8_t, wl_fullscreen, 0, cvar_wl_fullscreen_Changed, AZ::ConsoleFunctorFlags::DontReplicate, "WAYLAND ONLY: Make main surface fullscreen.");
 
 
-
-
     void WaylandNativeWindow::SurfaceEnter(void *data,
 							 struct wl_surface */*wl_surface*/,
 							 struct wl_output *output)
@@ -83,7 +81,7 @@ namespace AzFramework
 			}
 
 			self->m_currentEnteredOutput = output;
-			self->UpdateRefreshRate(refreshRateMhz);
+            self->InternalUpdateRefreshRate(refreshRateMhz);
 			AZStd::string name = outputManager->GetOutputName(output); // DP-1 or HDMI
 			AZStd::string desc = outputManager->GetOutputDesc(output); // Name of monitor.
 			AZ_Info(WaylandErrorWindow, "Entered screen: %s - %s", desc.c_str(), name.c_str());
@@ -102,7 +100,7 @@ namespace AzFramework
 									  int32_t factor)
 	{
 		auto self = (AzFramework::WaylandNativeWindow*)data;
-		self->UpdateScaleFactor((float)factor);
+        self->InternalUpdateScaleFactor((float) factor);
 	}
 
 	void WaylandNativeWindow::SurfacePreferredTransform(void */*data*/,
@@ -329,29 +327,6 @@ namespace AzFramework
 		return reinterpret_cast<NativeWindowHandle>(m_surface);
 	}
 
-	void WaylandNativeWindow::InternalWindowSizeChanged(uint32_t newWidth, uint32_t newHeight)
-	{
-		if(newWidth != m_width || newHeight != m_height)
-		{
-			m_width = newWidth;
-			m_height = newHeight;
-
-			if (m_activated)
-			{
-				WindowNotificationBus::Event(
-					reinterpret_cast<NativeWindowHandle>(m_surface), &WindowNotificationBus::Events::OnWindowResized, m_width, m_height);
-			}
-		}
-	}
-
-	void WaylandNativeWindow::UpdateBufferScale()
-	{
-		if(m_surface != nullptr) {
-			wl_surface_set_buffer_scale(m_surface, (int32_t)m_dpiScaleFactor);
-			AZ_Info(WaylandErrorWindow, "Setting buffer scale to %i", (int32_t)m_dpiScaleFactor);
-		}
-	}
-
 	void WaylandNativeWindow::SetWindowTitle(const AZStd::string &title)
 	{
 		if(m_xdgToplevel == nullptr)
@@ -390,30 +365,6 @@ namespace AzFramework
 	uint32_t WaylandNativeWindow::GetDisplayRefreshRate() const
 	{
 		return m_currentRefreshFramerate;
-	}
-
-	void WaylandNativeWindow::UpdateRefreshRate(uint32_t newRefreshMhz)
-	{
-		m_currentRefreshMhz = newRefreshMhz;
-		m_currentRefreshFramerate = (uint32_t)AZStd::ceil((float)m_currentRefreshMhz / 1000.0f);
-		WindowNotificationBus::Event(
-			GetWindowHandle(),
-			&WindowNotificationBus::Events::OnRefreshRateChanged,
-			m_currentRefreshFramerate);
-	}
-
-	void WaylandNativeWindow::UpdateScaleFactor(float newScale)
-	{
-		if(m_dpiScaleFactor != newScale)
-		{
-			m_dpiScaleFactor = newScale;
-			WindowNotificationBus::Event(
-				GetWindowHandle(),
-				&WindowNotificationBus::Events::OnDpiScaleFactorChanged,
-				m_dpiScaleFactor);
-		}
-
-		UpdateBufferScale();
 	}
 
     WindowSize WaylandNativeWindow::GetMaximumClientAreaSize() const
@@ -462,6 +413,53 @@ namespace AzFramework
             return false;
         }
         return m_flags & WaylandWindowFlags_CanFullscreen;
+    }
+
+    void WaylandNativeWindow::InternalWindowSizeChanged(uint32_t newWidth, uint32_t newHeight)
+    {
+        if(newWidth != m_width || newHeight != m_height)
+        {
+            m_width = newWidth;
+            m_height = newHeight;
+
+            if (m_activated)
+            {
+                WindowNotificationBus::Event(
+                        reinterpret_cast<NativeWindowHandle>(m_surface), &WindowNotificationBus::Events::OnWindowResized, m_width, m_height);
+            }
+        }
+    }
+
+    void WaylandNativeWindow::InternalUpdateRefreshRate(uint32_t newRefreshMhz)
+    {
+        m_currentRefreshMhz = newRefreshMhz;
+        m_currentRefreshFramerate = (uint32_t)AZStd::ceil((float)m_currentRefreshMhz / 1000.0f);
+        WindowNotificationBus::Event(
+                GetWindowHandle(),
+                &WindowNotificationBus::Events::OnRefreshRateChanged,
+                m_currentRefreshFramerate);
+    }
+
+    void WaylandNativeWindow::InternalUpdateBufferScale()
+    {
+        if(m_surface != nullptr) {
+            wl_surface_set_buffer_scale(m_surface, (int32_t)m_dpiScaleFactor);
+            AZ_Info(WaylandErrorWindow, "Setting buffer scale to %i", (int32_t)m_dpiScaleFactor);
+        }
+    }
+
+    void WaylandNativeWindow::InternalUpdateScaleFactor(float newScale)
+    {
+        if(m_dpiScaleFactor != newScale)
+        {
+            m_dpiScaleFactor = newScale;
+            WindowNotificationBus::Event(
+                    GetWindowHandle(),
+                    &WindowNotificationBus::Events::OnDpiScaleFactorChanged,
+                    m_dpiScaleFactor);
+        }
+
+        InternalUpdateBufferScale();
     }
 
 	void WaylandNativeWindow::SetPointerFocus(WaylandInputDeviceMouse *pointer)

@@ -49,25 +49,24 @@ namespace AzFramework
 		void InitWindowInternal(const AZStd::string &title, const AzFramework::WindowGeometry &geometry, const AzFramework::WindowStyleMasks &styleMasks) override;
 		NativeWindowHandle GetWindowHandle() const override;
 
-		void InternalWindowSizeChanged(uint32_t newWidth, uint32_t newHeight);
-
-		void UpdateBufferScale();
-
 		void SetWindowTitle(const AZStd::string &title) override;
+
 		bool SupportsClientAreaResize() const override;
 		void ResizeClientArea(AzFramework::WindowSize clientAreaSize, const AzFramework::WindowPosOptions &options) override;
 
 		float GetDpiScaleFactor() const override;
 		uint32_t GetDisplayRefreshRate() const override;
 
-		void UpdateRefreshRate(uint32_t newRefreshMhz);
-		void UpdateScaleFactor(float newScale);
-
         WindowSize GetMaximumClientAreaSize() const override;
 
 		bool GetFullScreenState() const override;
 		void SetFullScreenState(bool fullScreenState) override;
         bool CanToggleFullScreenState() const override;
+
+        void InternalWindowSizeChanged(uint32_t newWidth, uint32_t newHeight);
+        void InternalUpdateRefreshRate(uint32_t newRefreshMhz);
+        void InternalUpdateBufferScale();
+        void InternalUpdateScaleFactor(float newScale);
 
 		void SetPointerFocus(WaylandInputDeviceMouse* pointer);
 		void SetKeyboardFocus(WaylandInputDeviceKeyboard* keyboard);
