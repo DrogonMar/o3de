@@ -165,7 +165,7 @@ namespace AzFramework
 
         if(width && height)
         {
-            self->m_pending.m_size = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+            self->m_pending.m_size = {static_cast<uint32_t>(width * self->m_dpiScaleFactor), static_cast<uint32_t>(height * self->m_dpiScaleFactor)};
         }
         else
         {
