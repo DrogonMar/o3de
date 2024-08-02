@@ -276,8 +276,11 @@ namespace AzFramework
 			if(auto relManager = RelativePointerManagerInterface::Get())
 			{
 				m_relPointer = relManager->GetRelativePointer(m_pointer);
-				zwp_relative_pointer_v1_set_user_data(m_relPointer, this);
-				zwp_relative_pointer_v1_add_listener(m_relPointer, &s_rel_pointer_listener, this);
+                if(m_relPointer != nullptr)
+                {
+                    zwp_relative_pointer_v1_set_user_data(m_relPointer, this);
+                    zwp_relative_pointer_v1_add_listener(m_relPointer, &s_rel_pointer_listener, this);
+                }
 			}
 		}
 	}

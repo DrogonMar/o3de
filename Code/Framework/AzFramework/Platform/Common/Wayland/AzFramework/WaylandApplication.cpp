@@ -64,16 +64,6 @@ namespace AzFramework
 			if(SeatManagerInterface::Get() == nullptr){
 				SeatManagerInterface::Register(this);
 			}
-			if(CursorShapeManagerInterface::Get() == nullptr){
-				CursorShapeManagerInterface::Register(this);
-			}
-			if(PointerConstraintsManagerInterface::Get() == nullptr){
-				PointerConstraintsManagerInterface::Register(this);
-			}
-			if(RelativePointerManagerInterface::Get() == nullptr){
-				RelativePointerManagerInterface::Register(this);
-			}
-
 		}
 
 		~WaylandConnectionManagerImpl() override
@@ -234,19 +224,31 @@ namespace AzFramework
 				self->m_cursorManager =
 					static_cast<wp_cursor_shape_manager_v1*>(wl_registry_bind(registry, id, &wp_cursor_shape_manager_v1_interface, version));
                 self->m_cursorManagerId = id;
+
+                if(CursorShapeManagerInterface::Get() == nullptr){
+                    CursorShapeManagerInterface::Register(self);
+                }
 			}
 			else if (IS_INTERFACE(zwp_pointer_constraints_v1_interface))
 			{
 				self->m_constraintsManager =
 					static_cast<zwp_pointer_constraints_v1*>(wl_registry_bind(registry, id, &zwp_pointer_constraints_v1_interface, version));
                 self->m_constraintsManagerId = id;
+
+                if(PointerConstraintsManagerInterface::Get() == nullptr){
+                    PointerConstraintsManagerInterface::Register(self);
+                }
 			}
 			else if (IS_INTERFACE(zwp_relative_pointer_manager_v1_interface))
 			{
 				self->m_relativePointerManager =
 					static_cast<zwp_relative_pointer_manager_v1*>(wl_registry_bind(registry, id, &zwp_relative_pointer_manager_v1_interface, version));
                 self->m_relativePointerManagerId = id;
-			}
+
+                if(RelativePointerManagerInterface::Get() == nullptr){
+                    RelativePointerManagerInterface::Register(self);
+                }
+            }
 			else
 			{
 				WaylandRegistryEventsBus::Broadcast(
@@ -282,18 +284,30 @@ namespace AzFramework
 				wp_cursor_shape_manager_v1_destroy(self->m_cursorManager);
 				self->m_cursorManager = nullptr;
                 self->m_cursorManagerId = 0;
+
+                if(CursorShapeManagerInterface::Get() == self){
+                    CursorShapeManagerInterface::Unregister(self);
+                }
 			}
 			else if (self->m_constraintsManagerId == id)
 			{
 				zwp_pointer_constraints_v1_destroy(self->m_constraintsManager);
 				self->m_constraintsManager = nullptr;
                 self->m_constraintsManagerId = 0;
+
+                if(PointerConstraintsManagerInterface::Get() == self){
+                    PointerConstraintsManagerInterface::Unregister(self);
+                }
 			}
 			else if (self->m_relativePointerManagerId == id)
 			{
 				zwp_relative_pointer_manager_v1_destroy(self->m_relativePointerManager);
 				self->m_relativePointerManager = nullptr;
                 self->m_relativePointerManagerId = 0;
+
+                if(RelativePointerManagerInterface::Get() == self){
+                    RelativePointerManagerInterface::Unregister(self);
+                }
 			}
 			else{
 				WaylandRegistryEventsBus::Broadcast(
