@@ -34,6 +34,7 @@ namespace AzFramework
 		static WaylandInputDeviceMouse::Implementation* Create(InputDeviceMouse& inputDevice);
 
 		void UpdatePointer(wl_pointer* newPointer);
+        void ReleaseSeat() override;
 		void SeatCapsChanged() override;
 
 		bool IsConnected() const override;

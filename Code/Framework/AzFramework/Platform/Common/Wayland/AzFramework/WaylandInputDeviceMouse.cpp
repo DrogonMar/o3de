@@ -235,7 +235,7 @@ namespace AzFramework
 	WaylandInputDeviceMouse::~WaylandInputDeviceMouse()
 	{
 		SeatNotificationsBus::Handler::BusDisconnect();
-		wl_pointer_destroy(m_pointer);
+        UpdatePointer(nullptr);
 	}
 
 	WaylandInputDeviceMouse::Implementation *WaylandInputDeviceMouse::Create(AzFramework::InputDeviceMouse &inputDevice)
@@ -281,6 +281,11 @@ namespace AzFramework
 			}
 		}
 	}
+
+    void WaylandInputDeviceMouse::ReleaseSeat()
+    {
+        UpdatePointer(nullptr);
+    }
 
 	void WaylandInputDeviceMouse::SeatCapsChanged()
 	{

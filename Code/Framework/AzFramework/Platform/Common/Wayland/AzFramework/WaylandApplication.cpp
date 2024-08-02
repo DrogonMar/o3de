@@ -78,6 +78,17 @@ namespace AzFramework
 
 		~WaylandConnectionManagerImpl() override
 		{
+            {
+                //GloablRegistryRemove will modify the vector
+                //copy it for local
+                auto seats = m_seats;
+                for(auto& seat : seats)
+                {
+                    GlobalRegistryRemove(this, m_registry, seat.first);
+                }
+            }
+            m_seats.clear();
+
 			if(SeatManagerInterface::Get() == this){
 				SeatManagerInterface::Unregister(this);
 			}
@@ -255,6 +266,12 @@ namespace AzFramework
 			else if (self->m_seats.find(id) != self->m_seats.end()){
 				//it be a seat
 				auto seat = self->m_seats[id];
+
+                //Tell people using this seat to release any wl resources.
+			    AzFramework::SeatNotificationsBus::Event(
+                        seat->m_playerIdx,
+                        &AzFramework::SeatNotificationsBus::Events::ReleaseSeat);
+
 				self->m_seats.erase(id);
 
 				wl_seat_destroy(seat->m_seat);
@@ -655,9 +672,6 @@ namespace AzFramework
 				self->m_width = width;
 				self->m_height = height;
 				self->m_refreshRateMhz = refresh;
-				auto friendlyRR = (uint32_t)AZStd::ceil((float)refresh / 1000.0f);
-
-				AZ_Info("Output", "%i: %ix%i @%i", self->m_id, width, height, friendlyRR);
 			}
 		}
 
@@ -721,7 +735,7 @@ namespace AzFramework
 	{
 		if(WaylandConnectionManagerInterface::Get() == m_waylandConnectionManager.get())
 		{
-			WaylandConnectionManagerInterface ::Unregister(m_waylandConnectionManager.get());
+			WaylandConnectionManagerInterface::Unregister(m_waylandConnectionManager.get());
 		}
 		m_outputManager.reset();
 		m_xdgManager.reset();

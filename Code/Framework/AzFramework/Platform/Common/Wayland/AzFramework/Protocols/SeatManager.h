@@ -41,6 +41,7 @@ namespace AzFramework
 		virtual ~SeatNotifications() = default;
 
 		virtual void SeatCapsChanged() = 0;
+        virtual void ReleaseSeat() = 0;
 	};
 
 	class SeatNotificationsBusTraits

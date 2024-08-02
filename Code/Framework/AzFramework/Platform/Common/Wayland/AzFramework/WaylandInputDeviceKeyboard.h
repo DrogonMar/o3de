@@ -31,6 +31,7 @@ namespace AzFramework
 		static WaylandInputDeviceKeyboard::Implementation* Create(InputDeviceKeyboard& inputDevice);
 
 		void UpdateKeyboard(wl_keyboard* newKeyboard);
+        void ReleaseSeat() override;
 		void SeatCapsChanged() override;
 
 		bool IsConnected() const override;

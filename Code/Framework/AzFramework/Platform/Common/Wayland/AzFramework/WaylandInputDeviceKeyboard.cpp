@@ -124,9 +124,8 @@ namespace AzFramework
 
 	WaylandInputDeviceKeyboard::~WaylandInputDeviceKeyboard()
 	{
-		if (m_keyboard){
-			wl_keyboard_release(m_keyboard);
-		}
+		SeatNotificationsBus::Handler::BusDisconnect();
+		UpdateKeyboard(nullptr);
 	}
 
 	WaylandInputDeviceKeyboard::Implementation *WaylandInputDeviceKeyboard::Create(AzFramework::InputDeviceKeyboard &inputDevice)
@@ -152,6 +151,11 @@ namespace AzFramework
 			wl_keyboard_add_listener(m_keyboard, &s_keyboard_listener, this);
 		}
 	}
+
+    void WaylandInputDeviceKeyboard::ReleaseSeat()
+    {
+        UpdateKeyboard(nullptr);
+    }
 
 	void WaylandInputDeviceKeyboard::SeatCapsChanged()
 	{
