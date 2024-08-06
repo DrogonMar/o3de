@@ -39,6 +39,7 @@ namespace AzFramework
             WindowRequestBus::EventResult(canToggleFullScreenStateOfDefaultWindow,
                                           defaultWindowHandle,
                                           &WindowRequestBus::Events::CanToggleFullScreenState);
+
             if(!canToggleFullScreenStateOfDefaultWindow)
             {
                 AZ_Error(WaylandErrorWindow, false, "XDG TopLevel missing or fullscreen unsupported on compositor.");
@@ -49,6 +50,7 @@ namespace AzFramework
             AzFramework::WindowRequestBus::EventResult(
                     isFullscreen, defaultWindowHandle,
                     &AzFramework::WindowRequestBus::Events::GetFullScreenState);
+
             if(isFullscreen != newFullscreen)
             {
                 //changing res
@@ -73,10 +75,12 @@ namespace AzFramework
 	{
 		auto self = (AzFramework::WaylandNativeWindow*)data;
 
-		if(auto outputManager = AzFramework::OutputManagerInterface::Get()){
+		if(auto outputManager = AzFramework::OutputManagerInterface::Get())
+		{
 			uint32_t refreshRateMhz = outputManager->GetRefreshRateMhz(output);
 
-			if(refreshRateMhz == 0){
+			if(refreshRateMhz == 0)
+			{
 				return;
 			}
 
@@ -152,7 +156,8 @@ namespace AzFramework
         self->m_pending.m_resize = false;
 
         xdg_toplevel_state* state;
-        wl_array_for_each_cpp(state, states) {
+        wl_array_for_each_cpp(state, states)
+		{
             if(*state == XDG_TOPLEVEL_STATE_FULLSCREEN)
             {
                 self->m_pending.m_fullscreen = true;
@@ -193,7 +198,8 @@ namespace AzFramework
 	{
         auto self = (AzFramework::WaylandNativeWindow*)data;
         xdg_toplevel_wm_capabilities* cap;
-        wl_array_for_each_cpp(cap, caps) {
+        wl_array_for_each_cpp(cap, caps)
+		{
             if(*cap == XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN)
             {
                 self->m_flags |= WaylandWindowFlags_CanFullscreen;
@@ -208,15 +214,20 @@ namespace AzFramework
 		, m_surface(nullptr)
 		, m_xdgSurface(nullptr)
 	{
-		if(auto connectionManager = AzFramework::WaylandConnectionManagerInterface::Get(); connectionManager != nullptr)
+		if(auto connectionManager = AzFramework::WaylandConnectionManagerInterface::Get();
+			connectionManager != nullptr)
 		{
 			m_display = connectionManager->GetWaylandDisplay();
 			m_compositor = connectionManager->GetWaylandCompositor();
 		}
-		if(auto xdgShellManager = AzFramework::XdgShellConnectionManagerInterface::Get(); xdgShellManager != nullptr){
+		if(auto xdgShellManager = AzFramework::XdgShellConnectionManagerInterface::Get();
+			xdgShellManager != nullptr)
+		{
 			m_xdgShell = xdgShellManager->GetXdgWmBase();
 		}
-		if(auto xdgDecorManager = AzFramework::XdgDecorConnectionManagerInterface::Get(); xdgDecorManager != nullptr){
+		if(auto xdgDecorManager = AzFramework::XdgDecorConnectionManagerInterface::Get();
+			xdgDecorManager != nullptr)
+		{
 			m_xdgDecor = xdgDecorManager->GetXdgDecor();
 		}
 		AZ_Error(WaylandErrorWindow, m_display != nullptr, "Unable to get Wayland display.");
@@ -242,21 +253,26 @@ namespace AzFramework
 			return;
 		}
 
-		WindowNotificationBus::Event(reinterpret_cast<NativeWindowHandle>(m_surface), &WindowNotificationBus::Events::OnWindowClosed);
+		WindowNotificationBus::Event(reinterpret_cast<NativeWindowHandle>(m_surface),
+									 &WindowNotificationBus::Events::OnWindowClosed);
 
-		if(m_xdgTopLevelDecor != nullptr){
+		if(m_xdgTopLevelDecor != nullptr)
+		{
 			zxdg_toplevel_decoration_v1_destroy(m_xdgTopLevelDecor);
 			m_xdgTopLevelDecor = nullptr;
 		}
-		if(m_xdgToplevel != nullptr){
+		if(m_xdgToplevel != nullptr)
+		{
 			xdg_toplevel_destroy(m_xdgToplevel);
 			m_xdgToplevel = nullptr;
 		}
-		if(m_xdgSurface != nullptr){
+		if(m_xdgSurface != nullptr)
+		{
 			xdg_surface_destroy(m_xdgSurface);
 			m_xdgSurface = nullptr;
 		}
-		if(m_surface != nullptr){
+		if(m_surface != nullptr)
+		{
 			wl_surface_destroy(m_surface);
 			m_surface = nullptr;
 		}
@@ -274,9 +290,13 @@ namespace AzFramework
 
 		wl_surface_add_listener(m_surface, &s_surfaceListener, this);
 
+		m_width  = geometry.m_width;
+		m_height = geometry.m_height;
+
 		//It's possible we dont have access to XdgShell
 		//it's a stable wayland protocol so any normal desktop compositor will have it
-		if(m_xdgShell != nullptr) {
+		if(m_xdgShell != nullptr)
+		{
 			m_xdgSurface = xdg_wm_base_get_xdg_surface(m_xdgShell, m_surface);
 			AZ_Error(WaylandErrorWindow, m_xdgSurface != nullptr, "Failed to create XDG surface.");
 
@@ -290,29 +310,32 @@ namespace AzFramework
 			xdg_toplevel_set_title(m_xdgToplevel, title.c_str());
 
 			const uint32_t mask = styleMasks.m_platformAgnosticStyleMask;
-			if(mask & WindowStyleMasks::WINDOW_STYLE_RESIZEABLE || wl_resize == true){
-				xdg_toplevel_set_min_size(m_xdgToplevel, 1, 1);
-				xdg_toplevel_set_max_size(m_xdgToplevel, 0, 0);
-			}else{
-				xdg_toplevel_set_min_size(m_xdgToplevel, (int32_t)geometry.m_width, (int32_t)geometry.m_height);
-				xdg_toplevel_set_max_size(m_xdgToplevel, (int32_t)geometry.m_width, (int32_t)geometry.m_height);
+			if(mask & WindowStyleMasks::WINDOW_STYLE_RESIZEABLE || wl_resize == true)
+			{
+				InternalSetResizable(true);
+				m_flags |= WaylandWindowFlags_Resizable;
+			}
+			else
+			{
+				InternalSetResizable(false);
 			}
 
-			if(m_xdgDecor != nullptr){
+			if(m_xdgDecor != nullptr)
+			{
 				//We have decor support yippie
 				m_xdgTopLevelDecor = zxdg_decoration_manager_v1_get_toplevel_decoration(m_xdgDecor, m_xdgToplevel);
 				AZ_Error(WaylandErrorWindow, m_xdgTopLevelDecor != nullptr, "Failed to create XDG Toplevel decor.");
 
-				if((mask & WindowStyleMasks::WINDOW_STYLE_BORDERED) || (mask & WindowStyleMasks::WINDOW_STYLE_RESIZEABLE)){
+				if((mask & WindowStyleMasks::WINDOW_STYLE_BORDERED) || (mask & WindowStyleMasks::WINDOW_STYLE_RESIZEABLE))
+				{
 					zxdg_toplevel_decoration_v1_set_mode(m_xdgTopLevelDecor, zxdg_toplevel_decoration_v1_mode::ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
-				}else{
+				}
+				else
+				{
 					zxdg_toplevel_decoration_v1_set_mode(m_xdgTopLevelDecor, zxdg_toplevel_decoration_v1_mode::ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 				}
 			}
 		}
-
-		m_width  = geometry.m_width;
-		m_height = geometry.m_height;
 
 		wl_surface_commit(m_surface);
         if(auto con = WaylandConnectionManagerInterface::Get())
@@ -330,7 +353,9 @@ namespace AzFramework
 	void WaylandNativeWindow::SetWindowTitle(const AZStd::string &title)
 	{
 		if(m_xdgToplevel == nullptr)
+		{
 			return;
+		}
 
 		xdg_toplevel_set_title(m_xdgToplevel, title.c_str());
 	}
@@ -391,6 +416,15 @@ namespace AzFramework
             return;
         }
 
+		if(!(m_flags & WaylandWindowFlags_Resizable))
+		{
+			//Window shouldn't be resizable
+
+			//XDG Shell spec states that compositors can ignore fullscreen requests if the
+			//window isn't resizable.
+			InternalSetResizable(fullScreenState);
+		}
+
 		if(fullScreenState)
 		{
 			//Just use what ever output we just entered
@@ -402,7 +436,9 @@ namespace AzFramework
         }
 
         WindowNotificationBus::Event(
-                reinterpret_cast<NativeWindowHandle>(m_surface), &WindowNotificationBus::Events::OnFullScreenModeChanged, fullScreenState);
+                reinterpret_cast<NativeWindowHandle>(m_surface),
+				&WindowNotificationBus::Events::OnFullScreenModeChanged,
+				fullScreenState);
 	}
 
     bool WaylandNativeWindow::CanToggleFullScreenState() const
@@ -415,6 +451,25 @@ namespace AzFramework
         return m_flags & WaylandWindowFlags_CanFullscreen;
     }
 
+	void WaylandNativeWindow::InternalSetResizable(bool isResizable)
+	{
+		if(m_xdgToplevel == nullptr)
+		{
+			return;
+		}
+
+		if(isResizable)
+		{
+			xdg_toplevel_set_min_size(m_xdgToplevel, 1, 1);
+			xdg_toplevel_set_max_size(m_xdgToplevel, 0, 0);
+		}
+		else
+		{
+			xdg_toplevel_set_min_size(m_xdgToplevel, (int32_t)m_width, (int32_t)m_height);
+			xdg_toplevel_set_max_size(m_xdgToplevel, (int32_t)m_width, (int32_t)m_height);
+		}
+	}
+
     void WaylandNativeWindow::InternalWindowSizeChanged(uint32_t newWidth, uint32_t newHeight)
     {
         if(newWidth != m_width || newHeight != m_height)
@@ -425,7 +480,9 @@ namespace AzFramework
             if (m_activated)
             {
                 WindowNotificationBus::Event(
-                        reinterpret_cast<NativeWindowHandle>(m_surface), &WindowNotificationBus::Events::OnWindowResized, m_width, m_height);
+                        reinterpret_cast<NativeWindowHandle>(m_surface),
+						&WindowNotificationBus::Events::OnWindowResized,
+						m_width, m_height);
             }
         }
     }

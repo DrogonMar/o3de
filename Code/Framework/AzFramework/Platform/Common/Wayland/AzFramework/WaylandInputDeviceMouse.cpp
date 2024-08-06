@@ -384,11 +384,14 @@ namespace AzFramework
 			return;
 		}
 
-		if(m_shapeDevice == nullptr)
+		if(m_shapeDevice == nullptr){
 			return;
+		}
 
 		if(m_currentSerial == UINT32_MAX)
+		{
 			return;
+		}
 
 		wp_cursor_shape_device_v1_set_shape(m_shapeDevice, m_currentSerial, shape);
 	}

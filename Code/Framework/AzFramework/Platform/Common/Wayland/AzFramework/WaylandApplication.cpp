@@ -61,7 +61,8 @@ namespace AzFramework
 
 			WaylandConnectionManagerBus::Handler::BusConnect();
 
-			if(SeatManagerInterface::Get() == nullptr){
+			if(SeatManagerInterface::Get() == nullptr)
+			{
 				SeatManagerInterface::Register(this);
 			}
 		}
@@ -79,16 +80,20 @@ namespace AzFramework
             }
             m_seats.clear();
 
-			if(SeatManagerInterface::Get() == this){
+			if(SeatManagerInterface::Get() == this)
+			{
 				SeatManagerInterface::Unregister(this);
 			}
-			if(CursorShapeManagerInterface::Get() == this){
+			if(CursorShapeManagerInterface::Get() == this)
+			{
 				CursorShapeManagerInterface::Unregister(this);
 			}
-			if(PointerConstraintsManagerInterface::Get() == this){
+			if(PointerConstraintsManagerInterface::Get() == this)
+			{
 				PointerConstraintsManagerInterface::Unregister(this);
 			}
-			if(RelativePointerManagerInterface::Get() == this){
+			if(RelativePointerManagerInterface::Get() == this)
+			{
 				RelativePointerManagerInterface::Unregister(this);
 			}
 
@@ -143,7 +148,8 @@ namespace AzFramework
 
 		wl_pointer * GetSeatPointer(uint32_t playerIdx) const override
 		{
-			if(auto seat = GetSeatFromPlayerIdx(playerIdx)){
+			if(auto seat = GetSeatFromPlayerIdx(playerIdx))
+			{
 				if(!seat->m_supportsPointer)
 					return nullptr;
 				return wl_seat_get_pointer(seat->m_seat);
@@ -153,7 +159,8 @@ namespace AzFramework
 
 		wl_keyboard * GetSeatKeyboard(uint32_t playerIdx) const override
 		{
-			if(auto seat = GetSeatFromPlayerIdx(playerIdx)){
+			if(auto seat = GetSeatFromPlayerIdx(playerIdx))
+			{
 				if(!seat->m_supportsKeyboard)
 					return nullptr;
 				return wl_seat_get_keyboard(seat->m_seat);
@@ -163,7 +170,8 @@ namespace AzFramework
 
 		wl_touch * GetSeatTouch(uint32_t playerIdx) const override
 		{
-			if(auto seat = GetSeatFromPlayerIdx(playerIdx)){
+			if(auto seat = GetSeatFromPlayerIdx(playerIdx))
+			{
 				if(!seat->m_supportsTouch)
 					return nullptr;
 				return wl_seat_get_touch(seat->m_seat);
@@ -225,7 +233,8 @@ namespace AzFramework
 					static_cast<wp_cursor_shape_manager_v1*>(wl_registry_bind(registry, id, &wp_cursor_shape_manager_v1_interface, version));
                 self->m_cursorManagerId = id;
 
-                if(CursorShapeManagerInterface::Get() == nullptr){
+                if(CursorShapeManagerInterface::Get() == nullptr)
+				{
                     CursorShapeManagerInterface::Register(self);
                 }
 			}
@@ -235,7 +244,8 @@ namespace AzFramework
 					static_cast<zwp_pointer_constraints_v1*>(wl_registry_bind(registry, id, &zwp_pointer_constraints_v1_interface, version));
                 self->m_constraintsManagerId = id;
 
-                if(PointerConstraintsManagerInterface::Get() == nullptr){
+                if(PointerConstraintsManagerInterface::Get() == nullptr)
+				{
                     PointerConstraintsManagerInterface::Register(self);
                 }
 			}
@@ -245,7 +255,8 @@ namespace AzFramework
 					static_cast<zwp_relative_pointer_manager_v1*>(wl_registry_bind(registry, id, &zwp_relative_pointer_manager_v1_interface, version));
                 self->m_relativePointerManagerId = id;
 
-                if(RelativePointerManagerInterface::Get() == nullptr){
+                if(RelativePointerManagerInterface::Get() == nullptr)
+				{
                     RelativePointerManagerInterface::Register(self);
                 }
             }
@@ -265,7 +276,8 @@ namespace AzFramework
 			if(self->m_compositorId == id){
 				//OH GOD OH NO!
 			}
-			else if (self->m_seats.find(id) != self->m_seats.end()){
+			else if (self->m_seats.find(id) != self->m_seats.end())
+			{
 				//it be a seat
 				auto seat = self->m_seats[id];
 
@@ -285,7 +297,8 @@ namespace AzFramework
 				self->m_cursorManager = nullptr;
                 self->m_cursorManagerId = 0;
 
-                if(CursorShapeManagerInterface::Get() == self){
+                if(CursorShapeManagerInterface::Get() == self)
+				{
                     CursorShapeManagerInterface::Unregister(self);
                 }
 			}
@@ -295,7 +308,8 @@ namespace AzFramework
 				self->m_constraintsManager = nullptr;
                 self->m_constraintsManagerId = 0;
 
-                if(PointerConstraintsManagerInterface::Get() == self){
+                if(PointerConstraintsManagerInterface::Get() == self)
+				{
                     PointerConstraintsManagerInterface::Unregister(self);
                 }
 			}
@@ -305,11 +319,13 @@ namespace AzFramework
 				self->m_relativePointerManager = nullptr;
                 self->m_relativePointerManagerId = 0;
 
-                if(RelativePointerManagerInterface::Get() == self){
+                if(RelativePointerManagerInterface::Get() == self)
+				{
                     RelativePointerManagerInterface::Unregister(self);
                 }
 			}
-			else{
+			else
+			{
 				WaylandRegistryEventsBus::Broadcast(
 					&WaylandRegistryEventsBus::Events::OnUnregister,
 					registry,
@@ -343,8 +359,10 @@ namespace AzFramework
 	private:
 		WaylandSeat* GetSeatFromPlayerIdx(uint32_t playerIdx) const
 		{
-			for (auto& seat : m_seats) {
-				if(seat.second->m_playerIdx == playerIdx){
+			for (auto& seat : m_seats)
+			{
+				if(seat.second->m_playerIdx == playerIdx)
+				{
 					return seat.second;
 				}
 			}
@@ -354,8 +372,10 @@ namespace AzFramework
 
 		uint32_t GetAvailablePlayerIdx() const
 		{
-			for (uint32_t i = 0; i < UINT32_MAX; ++i) {
-				if(GetSeatFromPlayerIdx(i) == nullptr){
+			for (uint32_t i = 0; i < UINT32_MAX; ++i)
+			{
+				if(GetSeatFromPlayerIdx(i) == nullptr)
+				{
 					return i;
 				}
 			}
@@ -415,10 +435,12 @@ namespace AzFramework
 		~XdgManagerImpl(){
 			WaylandRegistryEventsBus::Handler::BusDisconnect();
 
-			if(XdgShellConnectionManagerInterface::Get() == this){
+			if(XdgShellConnectionManagerInterface::Get() == this)
+			{
 				XdgShellConnectionManagerInterface::Unregister(this);
 			}
-			if(XdgDecorConnectionManagerInterface::Get() == this){
+			if(XdgDecorConnectionManagerInterface::Get() == this)
+			{
 				XdgDecorConnectionManagerInterface::Unregister(this);
 			}
 
@@ -442,13 +464,16 @@ namespace AzFramework
 		}
 
 		void OnRegister(wl_registry *registry, uint32_t id, const char *interface, uint32_t version) override {
-			if(IS_INTERFACE(xdg_wm_base_interface)){
+			if(IS_INTERFACE(xdg_wm_base_interface))
+			{
 				m_xdg =
 					static_cast<xdg_wm_base*>(wl_registry_bind(registry, id, &xdg_wm_base_interface, version));
 				xdg_wm_base_add_listener(m_xdg, &s_xdg_wm_listener, this);
                 m_xdgId = id;
                 WaylandInterfaceNotificationsBus::MultiHandler::BusConnect(m_xdgId);
-			}else if(IS_INTERFACE(zxdg_decoration_manager_v1_interface)){
+			}
+			else if(IS_INTERFACE(zxdg_decoration_manager_v1_interface))
+			{
 				m_decor =
 					static_cast<zxdg_decoration_manager_v1*>(wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, version));
                 m_decorId = id;
@@ -463,7 +488,8 @@ namespace AzFramework
                 m_xdgId = 0;
                 xdg_wm_base_destroy(m_xdg);
                 m_xdg = nullptr;
-            }else if(m_decorId == id)
+            }
+			else if(m_decorId == id)
             {
                 WaylandInterfaceNotificationsBus::MultiHandler::BusDisconnect(m_decorId);
                 m_decorId = 0;
@@ -481,7 +507,8 @@ namespace AzFramework
             }
             if(m_xdgId == registryId)
             {
-                switch (errorCode) {
+                switch (errorCode)
+				{
                     case XDG_WM_BASE_ERROR_ROLE:
                         AZ_Error("XDG", false, "Given surface has other role.");
                         break;
@@ -507,9 +534,11 @@ namespace AzFramework
                         AZ_Error("XDG", false, "Unknown error");
                         break;
                 }
-            }else if(m_decorId == registryId)
+            }
+			else if(m_decorId == registryId)
             {
-                switch (errorCode) {
+                switch (errorCode)
+				{
                     case ZXDG_TOPLEVEL_DECORATION_V1_ERROR_UNCONFIGURED_BUFFER:
                         AZ_Error("XDG Decor", false, "TopLevel has a buffer attached before configure.");
                         break;
@@ -585,7 +614,8 @@ namespace AzFramework
 		{
 			WaylandRegistryEventsBus::Handler::BusDisconnect();
 
-			if(OutputManagerInterface::Get() == this){
+			if(OutputManagerInterface::Get() == this)
+			{
 				OutputManagerInterface::Unregister(this);
 			}
 		}
@@ -619,7 +649,8 @@ namespace AzFramework
 
 		void OnRegister(wl_registry *registry, uint32_t id, const char *interface, uint32_t version) override
 		{
-			if(!IS_INTERFACE(wl_output_interface)) {
+			if(!IS_INTERFACE(wl_output_interface))
+			{
 				return;
 			}
 
@@ -638,7 +669,8 @@ namespace AzFramework
 		}
 
 		void OnUnregister(wl_registry *registry, uint32_t id) override{
-			if(m_outputs.find(id) == m_outputs.end()){
+			if(m_outputs.find(id) == m_outputs.end())
+			{
 				return;
 			}
 
@@ -681,7 +713,8 @@ namespace AzFramework
 			int32_t refresh)
 		{
 			auto self = static_cast<OutputInfo*>(data);
-			if(flags & wl_output_mode::WL_OUTPUT_MODE_CURRENT){
+			if(flags & wl_output_mode::WL_OUTPUT_MODE_CURRENT)
+			{
 				//We only really care for the current mode.
 				self->m_width = width;
 				self->m_height = height;
@@ -780,7 +813,8 @@ namespace AzFramework
                 {
 					wl_display_read_events(display);
 					wl_display_dispatch_pending(display);
-				} else
+				}
+				else
                 {
 					wl_display_cancel_read(display);
 				}
@@ -805,7 +839,8 @@ namespace AzFramework
                     {
 						wl_display_read_events(display);
 						wl_display_dispatch_pending(display);
-					} else
+					}
+					else
                     {
 						wl_display_cancel_read(display);
 						break; //no events are pending

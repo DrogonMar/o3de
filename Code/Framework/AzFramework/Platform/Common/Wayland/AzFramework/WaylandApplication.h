@@ -18,7 +18,7 @@
 //Notes: XdgShell is optional
 namespace AzFramework
 {
-	class WaylandApplication
+	class WaylandApplication final
 		: public Application::Implementation
 		, public LinuxLifecycleEvents::Bus::Handler
 	{

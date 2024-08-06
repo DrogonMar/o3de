@@ -22,7 +22,8 @@ namespace AzFramework
 		self->m_currentSerial = serial;
 
 		uint32_t* key;
-		wl_array_for_each_cpp(key, keys) {
+		wl_array_for_each_cpp(key, keys)
+		{
 			self->SendKeyEvent(*key, true);
 		}
 	}

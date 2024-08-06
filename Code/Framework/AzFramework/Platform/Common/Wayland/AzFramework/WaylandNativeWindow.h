@@ -25,6 +25,7 @@ namespace AzFramework
         WaylandWindowFlags_None            = 0,
         WaylandWindowFlags_CanFullscreen   = 1 << 0, //Will the compositor even let us fullscreen?
         WaylandWindowFlags_InFullscreen    = 1 << 1, //In fullscreen
+		WaylandWindowFlags_Resizable       = 1 << 2, //O3DE wants this to be resizable
     };
 
     enum XdgSurfaceEventMask : uint16_t
@@ -63,6 +64,7 @@ namespace AzFramework
 		void SetFullScreenState(bool fullScreenState) override;
         bool CanToggleFullScreenState() const override;
 
+		void InternalSetResizable(bool isResizable);
         void InternalWindowSizeChanged(uint32_t newWidth, uint32_t newHeight);
         void InternalUpdateRefreshRate(uint32_t newRefreshMhz);
         void InternalUpdateBufferScale();
