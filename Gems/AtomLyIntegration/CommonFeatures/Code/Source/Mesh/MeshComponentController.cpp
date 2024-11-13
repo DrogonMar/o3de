@@ -11,8 +11,6 @@
 #include <AtomLyIntegration/CommonFeatures/Mesh/MeshComponentConstants.h>
 #include <AtomLyIntegration/CommonFeatures/Mesh/MeshHandleStateBus.h>
 
-#include <Atom/Feature/Mesh/MeshFeatureProcessor.h>
-
 #include <Atom/RHI/RHISystemInterface.h>
 #include <Atom/RHI/RHIUtils.h>
 #include <Atom/RPI.Public/Model/Model.h>
@@ -717,7 +715,7 @@ namespace AZ
             return Aabb::CreateNull();
         }
 
-        void MeshComponentController::GetVisibleGeometry(
+        void MeshComponentController::BuildVisibleGeometry(
             const AZ::Aabb& bounds, AzFramework::VisibleGeometryContainer& geometryContainer) const
         {
             // Only include data for this entity if it is within bounds. This could possibly be done per sub mesh.

@@ -221,7 +221,11 @@ namespace AZ::RHI
         Clear,
 
         //! The attachment contents are undefined. Use when writing to entire contents of view.
-        DontCare
+        DontCare,
+
+        //! The attachment contents will be undefined inside the current scope and the resource is not accessed.
+        //! Will fallback to a Load op if the platform doesn't support it.
+        None
     };
 
     //! Describes the action the hardware should use when storing an attachment after a scope.
@@ -231,7 +235,12 @@ namespace AZ::RHI
         Store = 0,
 
         //! The attachment contents can be undefined after the current scope.
-        DontCare
+        DontCare,
+
+        //! The attachment contents are read only. This avoid any write back operations.
+        //! If values are written this behaves identically to the DontCare op.
+        //! Will fallback to a Store op if the platform doesn't support it.
+        None
     };
 
     //! Describes the type of data the attachment represents
@@ -260,12 +269,14 @@ namespace AZ::RHI
     };
 
     //! Describes the type of support for Subpass inputs.
-    enum class SubpassInputSupportType : uint8_t
+    enum class SubpassInputSupportType : uint32_t
     {
-        NotSupported = 0,
-        Native,             // Subpass inputs are supported natively by the platform.
-        Emulated            // Subpass inputs are supported through emulation with texture views.
+        None = 0,
+        Color = AZ_BIT(0),          // Subpass inputs for color attachments is supported.
+        DepthStencil = AZ_BIT(1),    // Subpass inputs for depth/stencil attachment is supported.
+        All = Color | DepthStencil
     };
+    AZ_DEFINE_ENUM_BITWISE_OPERATORS(AZ::RHI::SubpassInputSupportType)
 
     AZ_TYPE_INFO_SPECIALIZE(ScopeAttachmentAccess, "{C937CE07-7ADD-423E-BB2B-2ED2AE8DAB8F}");
     AZ_TYPE_INFO_SPECIALIZE(AttachmentLifetimeType, "{DE636A9A-FA57-49E6-B10D-BCEF25093797}");

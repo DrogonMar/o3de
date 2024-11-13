@@ -397,37 +397,7 @@ namespace AZ
                 AZ_Assert(false, "SampleCount is invalid.");
                 return VK_SAMPLE_COUNT_1_BIT;
             }
-        }
-
-        VkAttachmentLoadOp ConvertAttachmentLoadAction(RHI::AttachmentLoadAction loadAction)
-        {
-            switch (loadAction)
-            {
-            case RHI::AttachmentLoadAction::Load:
-                return VK_ATTACHMENT_LOAD_OP_LOAD;
-            case RHI::AttachmentLoadAction::Clear:
-                return VK_ATTACHMENT_LOAD_OP_CLEAR;
-            case RHI::AttachmentLoadAction::DontCare:
-                return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            default:    
-                AZ_Assert(false, "AttachmentLoadAction is illegal.");
-                return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            }
-        }
-
-        VkAttachmentStoreOp ConvertAttachmentStoreAction(RHI::AttachmentStoreAction storeAction)
-        {
-            switch (storeAction)
-            {
-            case RHI::AttachmentStoreAction::Store:
-                return VK_ATTACHMENT_STORE_OP_STORE;
-            case RHI::AttachmentStoreAction::DontCare:
-                return VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            default:
-                AZ_Assert(false, "AttachmentStoreAction is illegal.");
-                return VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            }
-        }
+        }        
 
         void FillClearValue(const RHI::ClearValue& rhiClearValue, VkClearValue& vulkanClearValue)
         {
@@ -945,6 +915,17 @@ namespace AZ
             rhiRange.m_arraySliceMin = static_cast<uint16_t>(range.baseArrayLayer);
             rhiRange.m_arraySliceMax = static_cast<uint16_t>(range.baseArrayLayer + range.layerCount - 1);
             return rhiRange;
+        }
+
+        VkImageSubresourceRange ConvertSubresourceRange(const RHI::ImageSubresourceRange& range)
+        {
+            VkImageSubresourceRange vkRange = {};
+            vkRange.aspectMask = ConvertImageAspectFlags(range.m_aspectFlags);
+            vkRange.baseMipLevel = range.m_mipSliceMin;
+            vkRange.levelCount = range.m_mipSliceMax - range.m_mipSliceMin + 1;
+            vkRange.baseArrayLayer = range.m_arraySliceMin;
+            vkRange.layerCount = range.m_arraySliceMax - range.m_arraySliceMin + 1;
+            return vkRange;
         }
 
         VkPipelineStageFlags ConvertScopeAttachmentStage(const RHI::ScopeAttachmentStage& stage)
