@@ -8,27 +8,25 @@
 
 #pragma once
 
-#include <AzCore/EBus/EBus.h>
 #include <AzCore/Interface/Interface.h>
 #include <AzCore/RTTI/RTTI.h>
 
-#include <AzFramework/WaylandInterface.h>
-#include <wayland-client.hpp>
 #include <AzFramework/Protocols/Gen/xdg-shell-client-protocol.h>
+#include <wayland-client.hpp>
 
 namespace AzFramework
 {
-	class OutputManager
-	{
-	public:
-		AZ_RTTI(OutputManager, "{8EEBB5C3-91BA-4AE8-8529-6F0FE69E7E9B}");
+    class OutputManager
+    {
+    public:
+        AZ_RTTI(OutputManager, "{8EEBB5C3-91BA-4AE8-8529-6F0FE69E7E9B}");
 
-		virtual ~OutputManager() = default;
+        virtual ~OutputManager() = default;
 
-		virtual uint32_t GetRefreshRateMhz(wl_output* output) = 0;
-		virtual AZStd::string GetOutputName(wl_output* output) = 0;
-		virtual AZStd::string GetOutputDesc(wl_output* output) = 0;
-	};
+        virtual uint32_t GetRefreshRateMhz(wl_output* output) = 0;
+        virtual AZStd::string GetOutputName(wl_output* output) = 0;
+        virtual AZStd::string GetOutputDesc(wl_output* output) = 0;
+    };
 
-	using OutputManagerInterface = AZ::Interface<OutputManager>;
-}
+    using OutputManagerInterface = AZ::Interface<OutputManager>;
+} // namespace AzFramework

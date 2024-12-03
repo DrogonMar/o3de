@@ -10,31 +10,34 @@
 
 #include <AzFramework/API/ApplicationAPI_Platform.h>
 #include <AzFramework/Application/Application.h>
-#include <AzFramework/WaylandConnectionManager.h>
-#include <AzFramework/Protocols/XdgShellManager.h>
 #include <AzFramework/Protocols/OutputManager.h>
+#include <AzFramework/WaylandConnectionManager.h>
 
-
-//Notes: XdgShell is optional
+// Notes: XdgShell is optional
 namespace AzFramework
 {
-	class WaylandApplication final
-		: public Application::Implementation
-		, public LinuxLifecycleEvents::Bus::Handler
-	{
-	public:
-		AZ_CLASS_ALLOCATOR(WaylandApplication, AZ::SystemAllocator);
-		WaylandApplication();
-		~WaylandApplication() override;
+    class WaylandApplication final
+        : public Application::Implementation
+        , public LinuxLifecycleEvents::Bus::Handler
+    {
+    public:
+        AZ_CLASS_ALLOCATOR(WaylandApplication, AZ::SystemAllocator);
+        WaylandApplication();
+        ~WaylandApplication() override;
 
-		bool HasEventsWaiting();
+        bool HasEventsWaiting() const;
 
-		void PumpSystemEventLoopOnce() override;
-		void PumpSystemEventLoopUntilEmpty() override;
+        void PumpSystemEventLoopOnce() override;
+        void PumpSystemEventLoopUntilEmpty() override;
 
-	private:
-		AZStd::unique_ptr<WaylandConnectionManager> m_waylandConnectionManager;
-		AZStd::unique_ptr<OutputManager> m_outputManager;
-		AZStd::unique_ptr<XdgShellConnectionManager> m_xdgManager;
-	};
-}
+    private:
+        AZStd::unique_ptr<WaylandConnectionManager> m_waylandConnectionManager;
+        AZStd::unique_ptr<OutputManager> m_outputManager;
+
+        // These are protocol managers we will keep alive
+        AZStd::unique_ptr<class XdgManagerImpl> m_xdgManager;
+        AZStd::unique_ptr<class RelativePointerManager> m_relativePointerManager;
+        AZStd::unique_ptr<class PointerConstraintsManager> m_pointerConstraintsManager;
+        AZStd::unique_ptr<class CursorShapeManager> m_cursorShapeManager;
+    };
+} // namespace AzFramework

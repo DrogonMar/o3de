@@ -8,25 +8,45 @@
 
 #pragma once
 
+#include <AzCore/Memory/SystemAllocator.h>
+
 #include <AzCore/EBus/EBus.h>
 #include <AzCore/Interface/Interface.h>
 #include <AzCore/RTTI/RTTI.h>
 
-#include <AzFramework/WaylandInterface.h>
-#include <wayland-client.hpp>
 #include <AzFramework/Protocols/Gen/cursor-shape-client-protocol.h>
+#include <AzFramework/WaylandInterface.h>
 
 namespace AzFramework
 {
-	class CursorShapeManager
-	{
-	public:
-		AZ_RTTI(CursorShapeManager, "{569EF165-AB9D-4F81-8E79-CE0E69600B8F}");
+    class CursorShapeManager
+    {
+    public:
+        AZ_RTTI(CursorShapeManager, "{569EF165-AB9D-4F81-8E79-CE0E69600B8F}");
 
-		virtual ~CursorShapeManager() = default;
+        virtual ~CursorShapeManager() = default;
 
-		virtual wp_cursor_shape_device_v1* GetCursorShapeDevice(wl_pointer* pointer) = 0;
-	};
+        virtual wp_cursor_shape_device_v1* GetCursorShapeDevice(wl_pointer* pointer) = 0;
+    };
 
-	using CursorShapeManagerInterface = AZ::Interface<CursorShapeManager>;
-}
+    using CursorShapeManagerInterface = AZ::Interface<CursorShapeManager>;
+
+    class CursorShapeManagerImpl
+        : public WaylandRegistryEventsBus::Handler
+        , public CursorShapeManager
+    {
+    public:
+        AZ_CLASS_ALLOCATOR(CursorShapeManagerImpl, AZ::SystemAllocator);
+        CursorShapeManagerImpl();
+        ~CursorShapeManagerImpl() override;
+
+        void OnRegister(wl_registry* registry, uint32_t id, const char* interface, uint32_t version) override;
+        void OnUnregister(wl_registry* registry, uint32_t id) override;
+
+        wp_cursor_shape_device_v1* GetCursorShapeDevice(wl_pointer* pointer) override;
+
+    private:
+        wp_cursor_shape_manager_v1* m_cursorManager = nullptr;
+        uint32_t m_cursorManagerId = 0;
+    };
+} // namespace AzFramework

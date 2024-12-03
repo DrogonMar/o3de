@@ -17,32 +17,31 @@
 struct xkb_context;
 namespace AzFramework
 {
-	class WaylandConnectionManager
-	{
-	public:
-		AZ_RTTI(WaylandConnectionManager, "{120B08F8-C381-436C-806D-5439CE816223}");
+    class WaylandConnectionManager
+    {
+    public:
+        AZ_RTTI(WaylandConnectionManager, "{120B08F8-C381-436C-806D-5439CE816223}");
 
-		virtual ~WaylandConnectionManager() = default;
+        virtual ~WaylandConnectionManager() = default;
 
-		virtual void DoRoundtrip() const = 0;
-		virtual void CheckErrors() const = 0;
+        virtual void DoRoundtrip() const = 0;
+        virtual void CheckErrors() const = 0;
 
-		virtual int GetDisplayFD() const = 0;
-		virtual wl_display* GetWaylandDisplay() const = 0;
-		virtual wl_registry* GetWaylandRegistry() const = 0;
-		virtual wl_compositor* GetWaylandCompositor() const = 0;
+        virtual int GetDisplayFD() const = 0;
+        virtual wl_display* GetWaylandDisplay() const = 0;
+        virtual wl_registry* GetWaylandRegistry() const = 0;
+        virtual wl_compositor* GetWaylandCompositor() const = 0;
 
-		virtual xkb_context* GetXkbContext() const = 0;
-	};
+        virtual xkb_context* GetXkbContext() const = 0;
+    };
 
-	class WaylandConnectionManagerBusTraits
-		: public AZ::EBusTraits
-	{
-	public:
-		static constexpr AZ::EBusHandlerPolicy HandlerPolicy = AZ::EBusHandlerPolicy::Single;
-		static constexpr AZ::EBusAddressPolicy AddressPolicy = AZ::EBusAddressPolicy::Single;
-	};
+    class WaylandConnectionManagerBusTraits : public AZ::EBusTraits
+    {
+    public:
+        static constexpr AZ::EBusHandlerPolicy HandlerPolicy = AZ::EBusHandlerPolicy::Single;
+        static constexpr AZ::EBusAddressPolicy AddressPolicy = AZ::EBusAddressPolicy::Single;
+    };
 
-	using WaylandConnectionManagerBus = AZ::EBus<WaylandConnectionManager, WaylandConnectionManagerBusTraits>;
-	using WaylandConnectionManagerInterface = AZ::Interface<WaylandConnectionManager>;
-}
+    using WaylandConnectionManagerBus = AZ::EBus<WaylandConnectionManager, WaylandConnectionManagerBusTraits>;
+    using WaylandConnectionManagerInterface = AZ::Interface<WaylandConnectionManager>;
+} // namespace AzFramework

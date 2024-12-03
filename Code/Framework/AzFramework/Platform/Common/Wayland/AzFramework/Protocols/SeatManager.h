@@ -12,49 +12,46 @@
 #include <AzCore/Interface/Interface.h>
 #include <AzCore/RTTI/RTTI.h>
 
-#include <AzFramework/WaylandInterface.h>
-#include <wayland-client.hpp>
 #include <AzFramework/Protocols/Gen/xdg-shell-client-protocol.h>
 
 namespace AzFramework
 {
-	class SeatManager
-	{
-	public:
-		AZ_RTTI(SeatManager, "{F2601B85-C823-454C-8053-18F44293F58A}");
+    class SeatManager
+    {
+    public:
+        AZ_RTTI(SeatManager, "{F2601B85-C823-454C-8053-18F44293F58A}");
 
-		virtual ~SeatManager() = default;
+        virtual ~SeatManager() = default;
 
-		virtual uint32_t GetSeatCount() const = 0;
-		virtual wl_pointer* GetSeatPointer(uint32_t playerIdx) const = 0;
-		virtual wl_keyboard* GetSeatKeyboard(uint32_t playerIdx) const = 0;
-		virtual wl_touch* GetSeatTouch(uint32_t playerIdx) const = 0;
-	};
+        virtual uint32_t GetSeatCount() const = 0;
+        virtual wl_pointer* GetSeatPointer(uint32_t playerIdx) const = 0;
+        virtual wl_keyboard* GetSeatKeyboard(uint32_t playerIdx) const = 0;
+        virtual wl_touch* GetSeatTouch(uint32_t playerIdx) const = 0;
+    };
 
-	using SeatManagerInterface = AZ::Interface<SeatManager>;
+    using SeatManagerInterface = AZ::Interface<SeatManager>;
 
-	class SeatNotifications
-	{
-	public:
-		AZ_RTTI(SeatNotifications, "{6BBCA05F-51BE-4244-92FB-A54938339A38}");
+    class SeatNotifications
+    {
+    public:
+        AZ_RTTI(SeatNotifications, "{6BBCA05F-51BE-4244-92FB-A54938339A38}");
 
-		virtual ~SeatNotifications() = default;
+        virtual ~SeatNotifications() = default;
 
-		virtual void SeatCapsChanged() = 0;
+        virtual void SeatCapsChanged() = 0;
         virtual void ReleaseSeat() = 0;
-	};
+    };
 
-	class SeatNotificationsBusTraits
-		: public AZ::EBusTraits
-	{
-	public:
-		static constexpr AZ::EBusHandlerPolicy HandlerPolicy = AZ::EBusHandlerPolicy::Multiple;
-		static constexpr AZ::EBusAddressPolicy AddressPolicy = AZ::EBusAddressPolicy::ById;
+    class SeatNotificationsBusTraits : public AZ::EBusTraits
+    {
+    public:
+        static constexpr AZ::EBusHandlerPolicy HandlerPolicy = AZ::EBusHandlerPolicy::Multiple;
+        static constexpr AZ::EBusAddressPolicy AddressPolicy = AZ::EBusAddressPolicy::ById;
 
-		//PlayerIdx
-		using BusIdType = uint32_t;
-	};
+        // PlayerIdx
+        using BusIdType = uint32_t;
+    };
 
-	using SeatNotificationsBus = AZ::EBus<SeatNotifications, SeatNotificationsBusTraits>;
+    using SeatNotificationsBus = AZ::EBus<SeatNotifications, SeatNotificationsBusTraits>;
 
-}
+} // namespace AzFramework

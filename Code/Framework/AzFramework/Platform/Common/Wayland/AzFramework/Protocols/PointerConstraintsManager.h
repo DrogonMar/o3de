@@ -8,25 +8,45 @@
 
 #pragma once
 
+#include "AzCore/Memory/SystemAllocator.h"
+
 #include <AzCore/EBus/EBus.h>
 #include <AzCore/Interface/Interface.h>
 #include <AzCore/RTTI/RTTI.h>
 
-#include <AzFramework/WaylandInterface.h>
-#include <wayland-client.hpp>
 #include <AzFramework/Protocols/Gen/pointer-constraints-client-protocol.h>
+#include <AzFramework/WaylandInterface.h>
 
 namespace AzFramework
 {
-	class PointerConstraintsManager
-	{
-	public:
-		AZ_RTTI(PointerConstraintsManager, "{C22DB3C9-6059-42D1-8D82-6FA2018FA078}");
+    class PointerConstraintsManager
+    {
+    public:
+        AZ_RTTI(PointerConstraintsManager, "{C22DB3C9-6059-42D1-8D82-6FA2018FA078}");
 
-		virtual ~PointerConstraintsManager() = default;
+        virtual ~PointerConstraintsManager() = default;
 
-		virtual zwp_pointer_constraints_v1* GetConstraints() = 0;
-	};
+        virtual zwp_pointer_constraints_v1* GetConstraints() = 0;
+    };
 
-	using PointerConstraintsManagerInterface = AZ::Interface<PointerConstraintsManager>;
-}
+    using PointerConstraintsManagerInterface = AZ::Interface<PointerConstraintsManager>;
+
+    class PointerConstraintsManagerImpl
+        : public WaylandRegistryEventsBus::Handler
+        , public PointerConstraintsManager
+    {
+    public:
+        AZ_CLASS_ALLOCATOR(PointerConstraintsManagerImpl, AZ::SystemAllocator);
+        PointerConstraintsManagerImpl();
+        ~PointerConstraintsManagerImpl() override;
+
+        void OnRegister(wl_registry* registry, uint32_t id, const char* interface, uint32_t version) override;
+        void OnUnregister(wl_registry* registry, uint32_t id) override;
+
+        zwp_pointer_constraints_v1* GetConstraints() override;
+
+    private:
+        zwp_pointer_constraints_v1* m_constraintsManager = nullptr;
+        uint32_t m_constraintsManagerId = 0;
+    };
+} // namespace AzFramework

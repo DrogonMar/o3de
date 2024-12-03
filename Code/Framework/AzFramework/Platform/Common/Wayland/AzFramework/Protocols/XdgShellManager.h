@@ -8,26 +8,23 @@
 
 #pragma once
 
-#include <AzCore/EBus/EBus.h>
 #include <AzCore/Interface/Interface.h>
 #include <AzCore/RTTI/RTTI.h>
 
-#include <AzFramework/WaylandInterface.h>
-#include <wayland-client.hpp>
 #include <AzFramework/Protocols/Gen/xdg-shell-client-protocol.h>
 
 namespace AzFramework
 {
-	class XdgShellConnectionManager
-	{
-	public:
-		AZ_RTTI(XdgShellConnectionManager, "{F1176D31-02EB-4154-BE66-A58F40DA3027}");
+    class XdgShellConnectionManager
+    {
+    public:
+        AZ_RTTI(XdgShellConnectionManager, "{F1176D31-02EB-4154-BE66-A58F40DA3027}");
 
-		virtual ~XdgShellConnectionManager() = default;
+        virtual ~XdgShellConnectionManager() = default;
 
         virtual uint32_t GetXdgWmBaseRegistryId() const = 0;
-		virtual xdg_wm_base* GetXdgWmBase() const = 0;
-	};
+        virtual xdg_wm_base* GetXdgWmBase() const = 0;
+    };
 
-	using XdgShellConnectionManagerInterface = AZ::Interface<XdgShellConnectionManager>;
-}
+    using XdgShellConnectionManagerInterface = AZ::Interface<XdgShellConnectionManager>;
+} // namespace AzFramework
