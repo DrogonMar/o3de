@@ -13,8 +13,6 @@ namespace AzFramework
     CursorShapeManagerImpl::CursorShapeManagerImpl()
     {
         WaylandRegistryEventsBus::Handler::BusConnect();
-
-        CursorShapeManagerInterface::Register(this);
     }
 
     CursorShapeManagerImpl::~CursorShapeManagerImpl()
@@ -37,6 +35,8 @@ namespace AzFramework
         m_cursorManager =
             static_cast<wp_cursor_shape_manager_v1*>(wl_registry_bind(registry, id, &wp_cursor_shape_manager_v1_interface, version));
         m_cursorManagerId = id;
+
+        CursorShapeManagerInterface::Register(this);
     }
 
     void CursorShapeManagerImpl::OnUnregister(wl_registry* registry, uint32_t id)
@@ -49,6 +49,11 @@ namespace AzFramework
         wp_cursor_shape_manager_v1_destroy(m_cursorManager);
         m_cursorManager = nullptr;
         m_cursorManagerId = 0;
+
+        if (CursorShapeManagerInterface::Get() == this)
+        {
+            CursorShapeManagerInterface::Unregister(this);
+        }
     }
 
     wp_cursor_shape_device_v1* CursorShapeManagerImpl::GetCursorShapeDevice(wl_pointer* pointer)

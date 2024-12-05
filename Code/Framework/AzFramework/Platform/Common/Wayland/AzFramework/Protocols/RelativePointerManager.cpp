@@ -13,18 +13,11 @@ namespace AzFramework
     RelativePointerManagerImpl::RelativePointerManagerImpl()
     {
         WaylandRegistryEventsBus::Handler::BusConnect();
-
-        RelativePointerManagerInterface::Register(this);
     }
 
     RelativePointerManagerImpl::~RelativePointerManagerImpl()
     {
         WaylandRegistryEventsBus::Handler::BusDisconnect();
-
-        if (RelativePointerManagerInterface::Get() == this)
-        {
-            RelativePointerManagerInterface::Unregister(this);
-        }
     }
 
     void RelativePointerManagerImpl::OnRegister(wl_registry* registry, uint32_t id, const char* interface, uint32_t version)
@@ -37,15 +30,24 @@ namespace AzFramework
         m_relativePointerManager = static_cast<zwp_relative_pointer_manager_v1*>(
             wl_registry_bind(registry, id, &zwp_relative_pointer_manager_v1_interface, version));
         m_relativePointerManagerId = id;
+
+        RelativePointerManagerInterface::Register(this);
     }
 
     void RelativePointerManagerImpl::OnUnregister(wl_registry* registry, uint32_t id)
     {
-        if (m_relativePointerManagerId == id)
+        if (m_relativePointerManagerId != id)
         {
-            zwp_relative_pointer_manager_v1_destroy(m_relativePointerManager);
-            m_relativePointerManager = nullptr;
-            m_relativePointerManagerId = 0;
+            return;
+        }
+
+        zwp_relative_pointer_manager_v1_destroy(m_relativePointerManager);
+        m_relativePointerManager = nullptr;
+        m_relativePointerManagerId = 0;
+
+        if (RelativePointerManagerInterface::Get() == this)
+        {
+            RelativePointerManagerInterface::Unregister(this);
         }
     }
 

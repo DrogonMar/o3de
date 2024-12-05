@@ -13,16 +13,6 @@ namespace AzFramework
     XdgManagerImpl::XdgManagerImpl()
     {
         WaylandRegistryEventsBus::Handler::BusConnect();
-
-        if (XdgShellConnectionManagerInterface::Get() == nullptr)
-        {
-            XdgShellConnectionManagerInterface::Register(this);
-        }
-
-        if (XdgDecorConnectionManagerInterface::Get() == nullptr)
-        {
-            XdgDecorConnectionManagerInterface::Register(this);
-        }
     }
 
     XdgManagerImpl::~XdgManagerImpl()
@@ -33,13 +23,20 @@ namespace AzFramework
         {
             XdgShellConnectionManagerInterface::Unregister(this);
         }
+
         if (XdgDecorConnectionManagerInterface::Get() == this)
         {
             XdgDecorConnectionManagerInterface::Unregister(this);
         }
 
-        xdg_wm_base_destroy(m_xdg);
-        zxdg_decoration_manager_v1_destroy(m_decor);
+        if (m_xdg != nullptr)
+        {
+            xdg_wm_base_destroy(m_xdg);
+        }
+        if (m_decor != nullptr)
+        {
+            zxdg_decoration_manager_v1_destroy(m_decor);
+        }
     }
 
     uint32_t XdgManagerImpl::GetXdgWmBaseRegistryId() const
@@ -64,6 +61,11 @@ namespace AzFramework
             xdg_wm_base_add_listener(m_xdg, &s_xdg_wm_listener, this);
             m_xdgId = id;
             WaylandInterfaceNotificationsBus::MultiHandler::BusConnect(m_xdgId);
+
+            if (XdgShellConnectionManagerInterface::Get() == nullptr)
+            {
+                XdgShellConnectionManagerInterface::Register(this);
+            }
         }
         else if (IS_INTERFACE(zxdg_decoration_manager_v1_interface))
         {
@@ -71,6 +73,11 @@ namespace AzFramework
                 static_cast<zxdg_decoration_manager_v1*>(wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, version));
             m_decorId = id;
             WaylandInterfaceNotificationsBus::MultiHandler::BusConnect(m_decorId);
+
+            if (XdgDecorConnectionManagerInterface::Get() == nullptr)
+            {
+                XdgDecorConnectionManagerInterface::Register(this);
+            }
         }
     }
     void XdgManagerImpl::OnUnregister(wl_registry*, uint32_t id)
@@ -81,6 +88,11 @@ namespace AzFramework
             m_xdgId = 0;
             xdg_wm_base_destroy(m_xdg);
             m_xdg = nullptr;
+
+            if (XdgShellConnectionManagerInterface::Get() == this)
+            {
+                XdgShellConnectionManagerInterface::Unregister(this);
+            }
         }
         else if (m_decorId == id)
         {
@@ -88,6 +100,11 @@ namespace AzFramework
             m_decorId = 0;
             zxdg_decoration_manager_v1_destroy(m_decor);
             m_decor = nullptr;
+
+            if (XdgDecorConnectionManagerInterface::Get() == this)
+            {
+                XdgDecorConnectionManagerInterface::Unregister(this);
+            }
         }
     }
 

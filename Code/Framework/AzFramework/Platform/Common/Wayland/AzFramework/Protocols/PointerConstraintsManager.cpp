@@ -13,18 +13,11 @@ namespace AzFramework
     PointerConstraintsManagerImpl::PointerConstraintsManagerImpl()
     {
         WaylandRegistryEventsBus::Handler::BusConnect();
-
-        PointerConstraintsManagerInterface::Register(this);
     }
 
     PointerConstraintsManagerImpl::~PointerConstraintsManagerImpl()
     {
         WaylandRegistryEventsBus::Handler::BusDisconnect();
-
-        if (PointerConstraintsManagerInterface::Get() == this)
-        {
-            PointerConstraintsManagerInterface::Unregister(this);
-        }
     }
 
     void PointerConstraintsManagerImpl::OnRegister(wl_registry* registry, uint32_t id, const char* interface, uint32_t version)
@@ -37,15 +30,24 @@ namespace AzFramework
         m_constraintsManager =
             static_cast<zwp_pointer_constraints_v1*>(wl_registry_bind(registry, id, &zwp_pointer_constraints_v1_interface, version));
         m_constraintsManagerId = id;
+
+        PointerConstraintsManagerInterface::Register(this);
     }
 
     void PointerConstraintsManagerImpl::OnUnregister(wl_registry* registry, uint32_t id)
     {
-        if (m_constraintsManagerId == id)
+        if (m_constraintsManagerId != id)
         {
-            zwp_pointer_constraints_v1_destroy(m_constraintsManager);
-            m_constraintsManager = nullptr;
-            m_constraintsManagerId = 0;
+            return;
+        }
+
+        zwp_pointer_constraints_v1_destroy(m_constraintsManager);
+        m_constraintsManager = nullptr;
+        m_constraintsManagerId = 0;
+
+        if (PointerConstraintsManagerInterface::Get() == this)
+        {
+            PointerConstraintsManagerInterface::Unregister(this);
         }
     }
 
