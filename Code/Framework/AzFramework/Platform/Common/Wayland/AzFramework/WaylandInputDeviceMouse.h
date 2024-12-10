@@ -44,6 +44,7 @@ namespace AzFramework
         AZ::Vector2 GetSystemCursorPositionNormalized() const override;
         void TickInputDevice() override;
 
+        // You should make sure the cursor is in the entered state before calling.
         void InternalApplyCursorState();
         void InternalSetShape(const wp_cursor_shape_device_v1_shape shape, bool visible);
         void InternalConstrainMouse(bool wantConstraints);

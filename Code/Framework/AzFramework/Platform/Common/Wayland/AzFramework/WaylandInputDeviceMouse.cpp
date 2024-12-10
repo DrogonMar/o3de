@@ -64,6 +64,9 @@ namespace AzFramework
         }
         self->m_focusedWindow = nullptr;
 
+        // I don't really see a need to save the pointer leave serial
+        // If you do please update the code that checks to see if currentSerial is at MAX since
+        // those assume if it's not at MAX then the pointer has entered.
         self->m_currentSerial = UINT32_MAX;
 
         self->m_axisEvent.m_eventMask |= PointerEventMask::POINTER_EVENT_LEAVE;
@@ -290,7 +293,12 @@ namespace AzFramework
     void WaylandInputDeviceMouse::SetSystemCursorState(AzFramework::SystemCursorState systemCursorState)
     {
         m_cursorState = systemCursorState;
-        InternalApplyCursorState();
+
+        // We shouldn't call ApplyCursorState unless the pointer entered a window
+        if (m_currentSerial != UINT32_MAX)
+        {
+            InternalApplyCursorState();
+        }
     }
 
     SystemCursorState WaylandInputDeviceMouse::GetSystemCursorState() const
@@ -327,6 +335,7 @@ namespace AzFramework
         if (m_currentSerial == UINT32_MAX)
         {
             // Need a serial code
+            AZ_Error(WaylandErrorWindow, false, "Calling InternalApplyCursorState but no serial");
             return;
         }
         switch (m_cursorState)
@@ -359,6 +368,12 @@ namespace AzFramework
 
     void WaylandInputDeviceMouse::InternalSetShape(const wp_cursor_shape_device_v1_shape shape, bool visible)
     {
+        if (m_currentSerial == UINT32_MAX)
+        {
+            AZ_Error(WaylandErrorWindow, false, "Calling InternalSetShape but no serial");
+            return;
+        }
+
         if (!visible)
         {
             wl_pointer_set_cursor(m_pointer, m_currentSerial, nullptr, 0, 0);
@@ -366,11 +381,6 @@ namespace AzFramework
         }
 
         if (m_shapeDevice == nullptr)
-        {
-            return;
-        }
-
-        if (m_currentSerial == UINT32_MAX)
         {
             return;
         }

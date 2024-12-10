@@ -300,7 +300,7 @@ namespace AzFramework
                 InternalSetResizable(true);
                 m_flags |= WaylandWindowFlags_Resizable;
 
-                //If wl_resize is true we should ensure this flag is set.
+                // If wl_resize is true we should ensure this flag is set.
                 mask |= WindowStyleMasks::WINDOW_STYLE_RESIZEABLE;
             }
             else
@@ -332,7 +332,6 @@ namespace AzFramework
         {
             con->DoRoundtrip();
         }
-        wl_surface_commit(m_surface);
     }
 
     NativeWindowHandle WaylandNativeWindow::GetWindowHandle() const

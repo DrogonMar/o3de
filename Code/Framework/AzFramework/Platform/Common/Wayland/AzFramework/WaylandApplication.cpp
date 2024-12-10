@@ -124,7 +124,7 @@ namespace AzFramework
         void CheckErrors() const override
         {
             int errorCode = wl_display_get_error(m_waylandDisplay.get());
-            if (errorCode == EPROTO)
+            if (errorCode != 0)
             {
                 const wl_interface* anInterface;
                 uint32_t interfaceId;
@@ -134,6 +134,11 @@ namespace AzFramework
                     WaylandInterfaceNotificationsBus::Event(
                         interfaceId, &WaylandInterfaceNotificationsBus::Events::OnProtocolError, interfaceId, code);
                 }
+
+                // Man page says: Note: Errors are fatal. If this function returns non-zero the display can no longer be used.
+                // let's die
+                AZ_Fatal("Wayland", "Protocol error occurred %d, please check above for more info.", errorCode);
+                AZ_Crash();
             }
         }
 
@@ -264,6 +269,11 @@ namespace AzFramework
             self->m_supportsPointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
             self->m_supportsKeyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
             self->m_supportsTouch = capabilities & WL_SEAT_CAPABILITY_TOUCH;
+
+            AZ_Info("Wayland", "Seat capabilities updated for player idx: %i name: \"%s\"", self->m_playerIdx, self->m_name.c_str());
+            AZ_Info("Wayland", "Supports Pointer? %s", self->m_supportsPointer ? "yes" : "no");
+            AZ_Info("Wayland", "Supports Keyboard? %s", self->m_supportsKeyboard ? "yes" : "no");
+            AZ_Info("Wayland", "Supports Touch? %s", self->m_supportsTouch ? "yes" : "no");
 
             // Tell people that the caps have changed
             AzFramework::SeatNotificationsBus::Event(self->m_playerIdx, &AzFramework::SeatNotificationsBus::Events::SeatCapsChanged);
@@ -571,7 +581,8 @@ namespace AzFramework
         {
             while (true)
             {
-                if (wl_display_dispatch_pending(display) == 0)
+                int num_dispatched_events = wl_display_dispatch_pending(display);
+                if (num_dispatched_events == 0)
                 {
                     // no pending events, read new events
                     wl_display_flush(display);
@@ -587,6 +598,16 @@ namespace AzFramework
                         wl_display_cancel_read(display);
                         break; // no events are pending
                     }
+                }
+                else if (num_dispatched_events == -1)
+                {
+                    // error
+                    m_waylandConnectionManager->CheckErrors();
+                    return;
+                }
+                else
+                {
+                    break;
                 }
             }
         }
