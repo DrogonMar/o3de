@@ -294,11 +294,14 @@ namespace AzFramework
             xdg_surface_set_window_geometry(m_xdgSurface, 0, 0, (int32_t)geometry.m_width, (int32_t)geometry.m_height);
             xdg_toplevel_set_title(m_xdgToplevel, title.c_str());
 
-            const uint32_t mask = styleMasks.m_platformAgnosticStyleMask;
+            uint32_t mask = styleMasks.m_platformAgnosticStyleMask;
             if (mask & WindowStyleMasks::WINDOW_STYLE_RESIZEABLE || wl_resize == true)
             {
                 InternalSetResizable(true);
                 m_flags |= WaylandWindowFlags_Resizable;
+
+                //If wl_resize is true we should ensure this flag is set.
+                mask |= WindowStyleMasks::WINDOW_STYLE_RESIZEABLE;
             }
             else
             {
@@ -311,7 +314,7 @@ namespace AzFramework
                 m_xdgTopLevelDecor = zxdg_decoration_manager_v1_get_toplevel_decoration(m_xdgDecor, m_xdgToplevel);
                 AZ_Error(WaylandErrorWindow, m_xdgTopLevelDecor != nullptr, "Failed to create XDG Toplevel decor.");
 
-                if ((mask & WindowStyleMasks::WINDOW_STYLE_BORDERED) || (mask & WindowStyleMasks::WINDOW_STYLE_RESIZEABLE))
+                if (mask & WindowStyleMasks::WINDOW_STYLE_BORDERED || mask & WindowStyleMasks::WINDOW_STYLE_RESIZEABLE)
                 {
                     zxdg_toplevel_decoration_v1_set_mode(
                         m_xdgTopLevelDecor, zxdg_toplevel_decoration_v1_mode::ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
@@ -319,7 +322,7 @@ namespace AzFramework
                 else
                 {
                     zxdg_toplevel_decoration_v1_set_mode(
-                        m_xdgTopLevelDecor, zxdg_toplevel_decoration_v1_mode::ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+                        m_xdgTopLevelDecor, zxdg_toplevel_decoration_v1_mode::ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE);
                 }
             }
         }
