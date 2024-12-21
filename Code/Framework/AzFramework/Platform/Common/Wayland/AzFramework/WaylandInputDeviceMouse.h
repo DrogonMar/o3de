@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <AzFramework/Windowing/NativeWindow.h>
 #include <AzFramework/Input/Devices/Mouse/InputDeviceMouse.h>
 #include <AzFramework/Protocols/CursorShapeManager.h>
 #include <AzFramework/Protocols/PointerConstraintsManager.h>

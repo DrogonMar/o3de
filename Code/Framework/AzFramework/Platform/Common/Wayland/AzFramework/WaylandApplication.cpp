@@ -6,9 +6,15 @@
  *
  */
 
+
+#include <AzCore/Console/IConsole.h>
+#include <AzCore/std/string/string.h>
+#include <AzCore/std/string/tokenize.h>
+
 #include <AzFramework/Protocols/CursorShapeManager.h>
 #include <AzFramework/Protocols/PointerConstraintsManager.h>
 #include <AzFramework/Protocols/RelativePointerManager.h>
+#include <AzFramework/Protocols/XdgManager.h>
 #include <AzFramework/Protocols/SeatManager.h>
 #include <AzFramework/WaylandApplication.h>
 #include <AzFramework/WaylandConnectionManager.h>
@@ -17,11 +23,7 @@
 #include <sys/poll.h>
 #include <wayland-client-protocol.h>
 #include <wayland-client.hpp>
-
-#include "AzCore/IO/FileIO.h"
-#include "AzCore/std/string/tokenize.h"
-
-#define IS_INTERFACE(wantedInter) strcmp(interface, wantedInter.name) == 0
+#include <xkbcommon/xkbcommon.h>
 
 AZStd::vector<AZStd::string> g_blockedProtocols;
 
@@ -215,12 +217,12 @@ namespace AzFramework
                 return;
             }
 
-            if (IS_INTERFACE(wl_compositor_interface))
+            if (WL_IS_INTERFACE(wl_compositor_interface))
             {
                 self->m_compositor = static_cast<wl_compositor*>(wl_registry_bind(registry, id, &wl_compositor_interface, version));
                 self->m_compositorId = id;
             }
-            else if (IS_INTERFACE(wl_seat_interface))
+            else if (WL_IS_INTERFACE(wl_seat_interface))
             {
                 auto seat = static_cast<wl_seat*>(wl_registry_bind(registry, id, &wl_seat_interface, version));
                 auto info = new WaylandSeat(seat);
@@ -320,7 +322,7 @@ namespace AzFramework
         xkb_context* m_xkbContext = nullptr;
 
         // Registry id -> WaylandSeat Ptr
-        AZStd::map<uint32_t, WaylandSeat*> m_seats = {};
+        AZStd::unordered_map<uint32_t, WaylandSeat*> m_seats = {};
 
         const wl_registry_listener s_registry_listener = { .global = GlobalRegistryHandler, .global_remove = GlobalRegistryRemove };
 
@@ -404,7 +406,7 @@ namespace AzFramework
 
         void OnRegister(wl_registry* registry, uint32_t id, const char* interface, uint32_t version) override
         {
-            if (!IS_INTERFACE(wl_output_interface))
+            if (!WL_IS_INTERFACE(wl_output_interface))
             {
                 return;
             }
@@ -504,7 +506,7 @@ namespace AzFramework
                                                        .description = OutputDesc };
 
     private:
-        AZStd::map<uint32_t, OutputInfo*> m_outputs = {};
+        AZStd::unordered_map<uint32_t, OutputInfo*> m_outputs = {};
     };
 
     WaylandApplication::WaylandApplication()

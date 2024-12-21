@@ -8,7 +8,10 @@
 
 #include "WaylandInputDeviceMouse.h"
 
+#include <AzCore/Console/IConsole.h>
+
 #include <AzFramework/Protocols/SeatManager.h>
+#include <AzFramework/WaylandNativeWindow.h>
 
 #include <linux/input-event-codes.h>
 
@@ -335,7 +338,7 @@ namespace AzFramework
         if (m_currentSerial == UINT32_MAX)
         {
             // Need a serial code
-            AZ_Error(WaylandErrorWindow, false, "Calling InternalApplyCursorState but no serial");
+            AZ_Error("WaylandInputDeviceMouse", false, "Calling InternalApplyCursorState but no serial");
             return;
         }
         switch (m_cursorState)
@@ -370,7 +373,7 @@ namespace AzFramework
     {
         if (m_currentSerial == UINT32_MAX)
         {
-            AZ_Error(WaylandErrorWindow, false, "Calling InternalSetShape but no serial");
+            AZ_Error("WaylandInputDeviceMouse", false, "Calling InternalSetShape but no serial");
             return;
         }
 

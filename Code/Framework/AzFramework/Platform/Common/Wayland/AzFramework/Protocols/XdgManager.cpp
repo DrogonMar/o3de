@@ -7,6 +7,7 @@
  */
 
 #include <AzFramework/Protocols/XdgManager.h>
+#include <AzFramework/WaylandConnectionManager.h>
 
 namespace AzFramework
 {
@@ -55,7 +56,7 @@ namespace AzFramework
     }
     void XdgManagerImpl::OnRegister(wl_registry* registry, uint32_t id, const char* interface, uint32_t version)
     {
-        if (IS_INTERFACE(xdg_wm_base_interface))
+        if (WL_IS_INTERFACE(xdg_wm_base_interface))
         {
             m_xdg = static_cast<xdg_wm_base*>(wl_registry_bind(registry, id, &xdg_wm_base_interface, version));
             xdg_wm_base_add_listener(m_xdg, &s_xdg_wm_listener, this);
@@ -67,7 +68,7 @@ namespace AzFramework
                 XdgShellConnectionManagerInterface::Register(this);
             }
         }
-        else if (IS_INTERFACE(zxdg_decoration_manager_v1_interface))
+        else if (WL_IS_INTERFACE(zxdg_decoration_manager_v1_interface))
         {
             m_decor =
                 static_cast<zxdg_decoration_manager_v1*>(wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, version));

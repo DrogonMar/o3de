@@ -7,6 +7,7 @@
  */
 
 #include <AzFramework/WaylandInputDeviceKeyboard.h>
+#include <AzFramework/WaylandNativeWindow.h>
 #include <sys/mman.h>
 
 namespace AzFramework
@@ -57,8 +58,12 @@ namespace AzFramework
         }
         auto self = static_cast<WaylandInputDeviceKeyboard*>(data);
 
-        char* map_shm = static_cast<char*>(mmap(nullptr, size, PROT_READ, MAP_SHARED, fd, 0));
-        AZ_Error("WaylandInputDeviceKeyboard", map_shm != MAP_FAILED, "Failed to MMAP");
+        char* map_shm = static_cast<char*>(mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0));
+        if(map_shm == MAP_FAILED)
+        {
+            AZ_Error("WaylandInputDeviceKeyboard", map_shm != MAP_FAILED, "Failed to MMAP: %s", strerror(errno));
+            return;
+        }
 
         xkb_keymap* xkb_keymap =
             xkb_keymap_new_from_string(self->m_xkbContext, map_shm, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);

@@ -12,6 +12,8 @@
 
 #include <AzCore/std/smart_ptr/unique_ptr.h>
 
+#define WL_IS_INTERFACE(wantedInter) strcmp(interface, wantedInter.name) == 0
+
 namespace AzFramework
 {
     template<auto Callable>

@@ -8,10 +8,12 @@
 
 #include "Protocols/XdgShellManager.h"
 
+#include <AzCore/Console/IConsole.h>
 #include <AzFramework/Application/Application.h>
+
+#include <AzFramework/WaylandInterface.h>
 #include <AzFramework/Protocols/OutputManager.h>
 #include <AzFramework/WaylandConnectionManager.h>
-#include <AzFramework/WaylandInterface.h>
 #include <AzFramework/WaylandNativeWindow.h>
 #include <AzFramework/Windowing/NativeWindow.h>
 
