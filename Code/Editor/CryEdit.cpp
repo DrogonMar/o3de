@@ -3492,7 +3492,15 @@ extern "C" int AZ_DLL_EXPORT CryEditMain(int argc, char* argv[])
         AZ::SettingsRegistryMergeUtils::MergeSettingsToRegistry_AddBuildSystemTargetSpecialization(
             registry, Editor::GetBuildTargetName());
 
-        AZ::Interface<AZ::IConsole>::Get()->PerformCommand("sv_isDedicated false");
+        AZ::IConsole* console = AZ::Interface<AZ::IConsole>::Get();
+        console->PerformCommand("sv_isDedicated false");
+#ifdef AZ_PLATFORM_LINUX
+        //Ensure we dont use Wayland implementations when QT is using Xcb.
+        if (QGuiApplication::platformName() != "wayland")
+        {
+            console->PerformCommand("wl_enable 0");
+        }
+#endif
 
         if (!AZToolsApp.Start())
         {

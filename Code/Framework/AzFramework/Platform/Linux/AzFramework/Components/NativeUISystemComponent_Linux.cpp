@@ -37,7 +37,11 @@ constexpr int g_max_gamepads = 4;
 
 constexpr rlim_t g_minimumOpenFileHandles = 65536L;
 
+//Commited state if we should use Wayland implementations or not.
 [[maybe_unused]] static bool g_useWayland = false;
+
+#include <AzCore/Console/IConsole.h>
+AZ_CVAR(bool, wl_enable, true, nullptr, AZ::ConsoleFunctorFlags::DontReplicate, "Use Wayland when available.");
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace AzFramework
@@ -171,7 +175,7 @@ namespace AzFramework
 #if PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB && PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND
         //Check for a Wayland env var if we also support X11
         const char* waylandEnvVar = getenv("WAYLAND_DISPLAY");
-        if (waylandEnvVar != nullptr && strlen(waylandEnvVar) > 0)
+        if (wl_enable && waylandEnvVar != nullptr && strlen(waylandEnvVar) > 0)
         {
             g_useWayland = true;
             AZ_Printf("NativeUISystemComponent", "Using Wayland, found WAYLAND_DISPLAY env var.");
